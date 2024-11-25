@@ -134,13 +134,16 @@ def _get_df(conexSGFin):
         , conexSGFin
     )
 
-    df_usos = df_usos.convert_dtypes()
 
-    # Get "TOTAL" row
-    df_usos.loc[df_usos.index[-1]+1] = df_usos.sum(numeric_only=True)
-    # Rename the NA in the "UEN" column to "TOTAL"
-    df_usos.fillna("TOTAL", inplace=True)
-
+    
+    if not df_usos.empty:
+        df_usos = df_usos.convert_dtypes()
+        # Get "TOTAL" row
+        df_usos.loc[df_usos.index[-1]+1] = df_usos.sum(numeric_only=True)
+        # Rename the NA in the "UEN" column to "TOTAL"
+        df_usos.fillna("TOTAL", inplace=True)
+        
+        
     return df_usos
 
 
@@ -168,7 +171,7 @@ ARGS:
     resultado = df.style \
         .format("$ {0:,.0f}", subset=list_Col_Num) \
         .format("{:,.2%}", subset=list_Col_Perc) \
-        .hide_index() \
+        .hide(axis=0)\
         .set_caption(
             titulo
             + " "
@@ -258,16 +261,12 @@ def usos_SGFin():
     df_usos = _get_df(conexSGFin)
 
     # Styling of DF
-    df_estilo = _estiladorVtaTitulo(
-        df_usos
-        , ["EGRESOS"]
-        , titulo="Egresos Por Uso"
-    )
-
+    df_estilo = _estiladorVtaTitulo(df_usos, ["EGRESOS"], titulo="Egresos Por Uso")
+       
     # Files location
     ubicacion = str(pathlib.Path(__file__).parent)+"\\"
 
-    # Get image of df_estilo
+    # Get image of df_estilo 
     _df_to_image(df_estilo, ubicacion, "Usos_SGFin.png")
 
 

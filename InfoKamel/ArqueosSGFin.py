@@ -391,7 +391,7 @@ def _get_df_GSheet(spreadsheetID, range):
 
     ##########################
     # Dropping "Tipo de Cambio" until someone register the data
-    df_gSheetData = df_gSheetData.drop(columns=["Tipo de Cambio"])
+    df_gSheetData = df_gSheetData.drop(columns=["Tipo de Cambio","Dólares Pesificados"])
     ##########################
 
     # Rename the NA
@@ -415,10 +415,10 @@ def _estiladorVtaTitulo(
     , list_Col_Num=[]
     , list_Col_Perc=[]
     , titulo=""
-):
+    ):
     """
-This function will return a styled dataframe that must be assign to a variable.
-ARGS:
+    This function will return a styled dataframe that must be assign to a variable.
+    ARGS:
     df: Dataframe that will be styled.
     list_Col_Num: List of numeric columns that will be formatted with
     zero decimals and thousand separator.
@@ -429,7 +429,7 @@ ARGS:
     resultado = df.style \
         .format("$ {0:,.0f}", subset=list_Col_Num) \
         .format("{:,.2%}", subset=list_Col_Perc) \
-        .hide_index() \
+        .hide(axis=0) \
         .set_caption(
             titulo
             + " "
@@ -537,7 +537,6 @@ def arqueos():
         df_stockDolar
         ,[
             "Dólares"
-            , "Dólares Pesificados"
         ], titulo="Arqueo Dólares"
     )
 

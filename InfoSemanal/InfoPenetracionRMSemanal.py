@@ -124,24 +124,20 @@ def _preparador(df:pd.DataFrame):
     df.drop(columns=["Despachos RedMas", "Despachos"], inplace=True)
 
     # Sorting DF by column "Penetración %" without affecting row "TOTAL"
-    row_total = df.loc[df.index[-1]]
+    df = df.reindex(columns=['UEN','Penetración %'])
+    row_total = df.loc[df["UEN"] == "TOTAL"]
     df_sorted = df[df["UEN"] != "TOTAL"].sort_values(by="Penetración %")
-    df_sorted = df_sorted.append(row_total)
+    df_sorted = pd.concat([df_sorted, row_total], axis=0)
 
     return df_sorted
 
 
-
+tiempoInicio = pd.to_datetime("today")
 ##############
 # STYLING of the dataframe
 ##############
 
-def _estiladorVtaTitulo(
-    df:pd.DataFrame
-    , list_Col_Num=[]
-    , list_Col_Perc=[]
-    , titulo=""
-):
+def _estiladorVtaTitulo(df, list_Col_Num, list_Col_Perc, titulo):
     """
 This function will return a styled dataframe that must be assign to a variable.
 ARGS:
@@ -153,9 +149,9 @@ ARGS:
     titulo: String for the table caption.
     """
     resultado = df.style \
-        .format("{0:,.0f}", subset=list_Col_Num) \
+        .format("{0:,.2f}", subset=list_Col_Num) \
         .format("{:,.2%}", subset=list_Col_Perc) \
-        .hide_index() \
+        .hide(axis=0) \
         .set_caption(
             titulo
             + "<br>"
@@ -166,8 +162,8 @@ ARGS:
             + ((pd.to_datetime("today")-pd.to_timedelta(1,"days"))
             .strftime("%d/%m/%y"))
         ) \
-        .set_properties(subset=list_Col_Num + list_Col_Perc
-            , **{"text-align": "center", "width": "80px"}) \
+        .set_properties(subset= list_Col_Perc + list_Col_Num
+            , **{"text-align": "center", "width": "100px"}) \
         .set_properties(border= "2px solid black") \
         .set_table_styles([
             {"selector": "caption", 
@@ -181,7 +177,6 @@ ARGS:
                     ("text-align", "center")
                     ,("background-color","black")
                     ,("color","white")
-                    ,("font-size", "14px")
                 ]
             }
         ]) \
@@ -208,9 +203,15 @@ ARGS:
             , "Penetración %" # of this column
         ]
     )
-
     
     return resultado
+
+#### Defino columnas para cada Dataframe (Numericas)
+numCols = [        
+         ]
+### COLUMNAS PARA INFORME PENETRACION
+percColsPen = ['Penetración %'
+]
 
 
 
@@ -323,13 +324,13 @@ def penetracionRMSemanal():
 
     df_liq_Estilo = _estiladorVtaTitulo(
         df_liq_listo
-        , list_Col_Perc= percCols
-        , titulo="REDMÁS LÍQUIDOS"
+        ,numCols,percColsPen
+        ,"REDMÁS LÍQUIDOS"
     )
     df_GNC_Estilo = _estiladorVtaTitulo(
         df_GNC_listo
-        , list_Col_Perc= percCols
-        , titulo="REDMÁS GNC"
+        ,numCols,percColsPen
+        , "REDMÁS GNC"
     )
 
     # Path and name for DF images

@@ -1,4 +1,4 @@
-###################################
+﻿###################################
 #
 #     INFORME BANCOS SALDOS 
 #               31/12/21
@@ -51,10 +51,10 @@ def _get_df(conexSGFin):
                 de las cuentas al momento 0 que sería el saldo al 31/01/22 */
 
                 , ROUND(CASE
-                    WHEN nombre.Nombre = 'BANCO NACION' THEN (sum([Importe]) + 194887.51)
-                    WHEN nombre.Nombre = 'BBVA FRANCES' THEN (sum([Importe]) + 4387906.60)
-                    WHEN nombre.Nombre = 'MERCADO PAGO' THEN (sum([Importe]) + 1909369.70)
-                    WHEN nombre.Nombre = 'Santander Rio' THEN (sum([Importe]) + 1805038.27)
+                    WHEN nombre.Nombre = 'BANCO NACION' THEN (sum([Importe]))
+                    WHEN nombre.Nombre = 'BBVA FRANCES' THEN (sum([Importe]))
+                    WHEN nombre.Nombre = 'MERCADO PAGO' THEN (sum([Importe]))
+                    WHEN nombre.Nombre = 'Santander Rio' THEN (sum([Importe]))
                     ELSE sum([Importe])
                 END, 0) as 'Saldo Inicial'
             
@@ -65,7 +65,7 @@ def _get_df(conexSGFin):
             JOIN  Sgfin.dbo.SGFIN_Banco as nombre
                 on id.IdBanco = nombre.Id
 
-            WHERE banco.Fecha > '20220131'
+            WHERE banco.Fecha > '20000131'
                 AND banco.Fecha < @FECHA
                 AND id.IdBanco <> 71
 

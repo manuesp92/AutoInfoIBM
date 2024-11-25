@@ -97,11 +97,9 @@ df_regalosTraslados = pd.read_sql("""
             AND EmP.CODPROMO = P.CODPROMO
     WHERE FECHASQL = DATEADD(day, -1, CAST(GETDATE() AS date))
         AND EmP.VOLUMEN > '0' 
-        AND (EmP.[CODPROMO] = '30'
-            OR P.[DESCRIPCION] like '%PRUEBA%'
+        AND ( P.[DESCRIPCION] like '%PRUEBA%'
             OR P.[DESCRIPCION] like '%TRASLADO%'
-            OR P.[DESCRIPCION] like '%MAYORISTA%'
-        )
+            )
 """, db_conex)
 
 df_regalosTraslados = df_regalosTraslados.convert_dtypes()
@@ -115,8 +113,8 @@ df_regalosTraslados["CODPRODUCTO"] = \
 
 
 # Append our previous dataframes to have the real sales volume
-df_empVentaNeteado = df_empVenta.append(df_regalosTraslados, ignore_index=True)
-
+#df_empVentaNeteado = df_empVenta.append(df_regalosTraslados, ignore_index=True) este era un metodo viejo q ya no funciona
+df_empVentaNeteado = pd.concat([df_empVenta, df_regalosTraslados], ignore_index=True)
 
 def grupo(codproducto):
     if codproducto == "GO" or codproducto == "EU":
@@ -223,7 +221,7 @@ ARGS:
     """
     resultado = df.style \
         .format("{0:,.0f}", subset=listaColNumericas) \
-        .hide_index() \
+        .hide(axis="index") \
         .set_caption(titulo
             +"\n"
             +((tiempoInicio-pd.to_timedelta(1,"days")).strftime("%d/%m/%y"))
@@ -254,28 +252,23 @@ ARGS:
             , axis=1)
     return resultado
 
-def estiladorVtaSinTitulo(df,listaColNumericas):
+def estiladorVtaSinTitulo(df, listaColNumericas):
     resultado = df.style \
         .format("{0:,.0f}", subset=listaColNumericas) \
-        .hide_index() \
-        .set_properties(subset=listaColNumericas
-            , **{"text-align": "center", "width": "100px"}) \
-        .set_properties(border= "2px solid black") \
+        .hide(axis="index") \
+        .set_properties(subset=listaColNumericas, **{"text-align": "center", "width": "100px"}) \
+        .set_properties(border="2px solid black") \
         .set_table_styles([
             {"selector": "th",
                 "props": [
-                    ("text-align", "center")
-                    ,("background-color","black")
-                    ,("color","white")
+                    ("text-align", "center"),
+                    ("background-color", "black"),
+                    ("color", "white")
                 ]
             }
         ]) \
-        .apply(lambda x: ["background: black" if x.name == "colTOTAL" 
-            else "" for i in x]
-            , axis=1) \
-        .apply(lambda x: ["color: white" if x.name == "colTOTAL" 
-            else "" for i in x]
-            , axis=1)
+        .apply(lambda x: ["background: black" if x.name == "colTOTAL" else "" for i in x], axis=1) \
+        .apply(lambda x: ["color: white" if x.name == "colTOTAL" else "" for i in x], axis=1)
     return resultado
 
 df_resultadosGOEU_Estilo = estiladorVtaSinTitulo(df_resultadosGOEU
@@ -306,7 +299,7 @@ except:
 # This will print the df with a unique name and will erase the old image 
 # everytime the script is run
 
-ubicacion = "C:\Informes\InfoVtaCombustibles\\"
+ubicacion = "C:/Users/mespinosa/AppData/Local/Microsoft/WindowsApps/Informes/InfoVtaCombustibles/"
 nombreGOEU = "Info_VolVtas_Gasoleos.png"
 nombreNSNU = "Info_VolVtas_Naftas.png"
 nombreGNC = "Info_VolVtas_GNC.png"
@@ -404,3 +397,4 @@ logger.info(
     + "\nTiempo de Ejecucion Total: "
     + str(tiempoFinal-tiempoInicio)
 )
+print('finalizado')

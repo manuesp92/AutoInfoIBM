@@ -1,4 +1,4 @@
-##########################
+﻿##########################
 #
 #    RUMAOS_INFO_BOT
 #
@@ -6,19 +6,22 @@
 
 import os
 import pathlib
+import mysql.connector
 ubic = str(pathlib.Path(__file__).parent)+"\\"
 
 from DatosTelegram import id_Autorizados, bot_token, testbot_token
-from DatosTelegram import testrumaos, rumaos_info, rumaos_info_com
-from DatosTelegram import rumaos_cheques, rumaos_info_CFO
+from DatosTelegram import testrumaos, rumaos_info, rumaos_info_com, rumaos_Info_Periferia, rumaos_Control_info, rumaos_Margenes,rumaosMasYPF
+from DatosTelegram import rumaos_MBC_gerencial,rumaos_MBC_operativo,rumaos_Comer_retail,rumaos_Abastecimiento,rumaos_Grandes_clientes,rumaosCalibracion_Control
+from DatosTelegram import rumaos_Informes_Globales,rumaos_Presupuestos,rumaos_Metricas,rumaos_Informes_Financieros, rumaos_Informes_MBC
+from DatosTelegram import rumaos_cheques, rumaos_info_CFO,inversionesIBM, rumaos_auditoria_RM
 from DatosTelegram import lapuchesky, rumaos_conciliaciones
+from DatosTelegram import rumaos_Info_EPresu
 from runpy import run_path
 import datetime as dt
 import pytz
 argTime = pytz.timezone('America/Argentina/Salta')
 
 import logging
-
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram import ChatAction
 from telegram.ext import Updater, CommandHandler
@@ -35,7 +38,6 @@ from InfoCheques.ChequesAyer import cheques_ayer
 
 from InfoSemanal.InfoPenetracionRMSemanal import penetracionRMSemanal
 from InfoSemanal.InfoRedControl import redControlSemanal
-from InfoSemanal.InfoVtaLiqProy import vtaSemanalProy_Liq_GNC
 from InfoSemanal.InfoVtasProyGranClient import vtaProyGranClient
 from InfoSemanal.InfoPerifericos import perifericoSemanal
 
@@ -94,8 +96,24 @@ def find(name, path, type="file"):
 # "Info_Morosos.png", "Info_VolumenVentas.png", etc
 filePath_InfoVtaComb = find("InfoVtaCombustibles", ubic, "dir") + "\\"
 filePath_InfoGrandesDeudas = find("InfoDeuda", ubic, "dir") + "\\"
-filePath_Info_Despachos_Camioneros = \
-    find("DespachosCamionerosRedmas", ubic, "dir") + "\\"
+filePath_Info_Presu_Gas = find("PRESUPUESTO",ubic, "dir") + "\\"
+filePath_Info_Pen_Pan= find("PenetracionPanaderia",ubic,"dir")+ "\\"
+filePath_Info_Pen_Lubri= find("Penetracion Lubricantes",ubic,"dir")+ "\\"
+filePath_Info_Pen_Salon= find("Penetracion Salon",ubic,"dir")+ "\\"
+filePath_Info_Control_Info= find("Control",ubic,"dir")+ "\\"
+filePath_Info_Margenes = find("MARGEN", ubic, "dir")+ "\\"
+filePath_Info_MargenesGasoleos = find("Margen_Playa", ubic, "dir")+ "\\"
+filePath_Info_Descargas = find("Informe descargas y volumenes", ubic, "dir")+ "\\"
+filePath_Info_RH = find("RH", ubic, "dir")+ "\\"
+filePath_Pen_APP_YPF = find("PenetracionAppYPF", ubic, "dir")+ "\\"
+filePath_Pen_RED_PAGO = find("Red Pago", ubic, "dir")+ "\\"
+filePath_KAMEL = find("InfoKamel", ubic, "dir")+ "\\"
+filePath_YPF = find("MasYPF", ubic, "dir")+ "\\"
+filePath_RedMas = find("InfoLubri_y_RedMas", ubic, "dir")+ "\\"
+filePath_InfoSemanal = find("InfoSemanal", ubic, "dir")+ "\\"
+filePath_Eduardo = find("DB_Eduardo", ubic, "dir")+ "\\"
+filePath_SHEET =  find("DB_Sheet", ubic, "dir")+ "\\"
+filePath_Info_Despachos_Camioneros =  find("DespachosCamionerosRedmas", ubic, "dir")+ "\\"
 ######//////////////######
 
 
@@ -229,17 +247,32 @@ def start(update, context) -> None:
                 , callback_data="Info Penetración")
         ]
         , [
-            InlineKeyboardButton("Info Despachos Camioneros"
-                , callback_data="Info Despachos Camioneros")
-            , InlineKeyboardButton("Info Ventas Lubri"
-                , callback_data="Info Ventas Lubri")
+            InlineKeyboardButton("Balance YER"
+                , callback_data="Balance YER")
+            , InlineKeyboardButton("Info Penetración Lubricantes"
+                , callback_data="Info Penetración Lubricantes")
+        ]
+        ,[
+            InlineKeyboardButton("Info Volumenes Proyectados"
+                , callback_data="Info Volumenes Proyectados")
+            ,InlineKeyboardButton("Info MBC Liquidos Dolarizada"
+                , callback_data="Info MBC Liquidos Dolarizada")
+        ]
+        , [
+            InlineKeyboardButton("Balance Economico Descargas"
+                , callback_data="Balance Economico Descargas")
+            ,InlineKeyboardButton("+ YPF"
+                , callback_data="+ YPF")
+        ]
+        , [
+            InlineKeyboardButton("Faltantes y Estados Turnos"
+                , callback_data="Faltantes y Estados Turnos")
         ]
         , [
             InlineKeyboardButton("Salir"
                 , callback_data="Salir")
         ]
     ]
-
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     update.message.reply_text("Por favor elija una opción:"
@@ -257,26 +290,32 @@ def resend(update, context) -> None:
     # This will create inline buttons
     keyboard = [
         [
-            InlineKeyboardButton("Info Diario"
-                , callback_data="Info Diario")
-            , InlineKeyboardButton("Info Comercial"
-                , callback_data="Info Comercial")
+            InlineKeyboardButton("Info Globales"
+                , callback_data="Info Globales")
+            , InlineKeyboardButton("Info Presupuestos"
+                , callback_data="Info Presupuestos")
         ]
         , [
-            InlineKeyboardButton("Info CFO"
-                , callback_data="Info CFO")
-            , InlineKeyboardButton("Info Semanal"
+            InlineKeyboardButton("Metricas"
+                , callback_data="Metricas")
+            , InlineKeyboardButton("Informes Financieros"
+                , callback_data="Informes Financieros")
+        ]
+        , [
+            InlineKeyboardButton("Info Semanal"
                 , callback_data="Info Semanal")
+            , InlineKeyboardButton("Info MBC"
+                , callback_data="Info MBC")
         ]
         , [
-            InlineKeyboardButton("Info Cheques"
-                , callback_data="Info Cheques")
-            , InlineKeyboardButton("Info Lapuchesky"
-                , callback_data="Info Lapuchesky")
+            InlineKeyboardButton("Info Abastecimiento"
+                , callback_data="Info Abastecimiento")
         ]
-        , [
-            InlineKeyboardButton("Info Conciliaciones"
-                , callback_data="Info Conciliaciones")
+        ,[
+            InlineKeyboardButton("Info Comercial Retail"
+                , callback_data="Info Comercial Retail")
+            ,InlineKeyboardButton("Info Grandes Clientes"
+                , callback_data="Info Grandes Clientes")
         ]
         , [
             InlineKeyboardButton("Salir"
@@ -315,24 +354,37 @@ def button(update, context) -> None:
     # INFO DEUDAS COMERCIALES
     if query.data == "Info Deudas Comerciales":
         try:
-            condicionDeudores()
+            run_path(filePath_InfoGrandesDeudas+"baja_Consumo_Grandes_Clientes_y_YER.py")
+            vtaProyGranClient()
+            run_path(filePath_InfoGrandesDeudas+"DeudaClientes.py")
             query.bot.send_photo(update.effective_chat.id
-                , open(find("DeudaComercial.png", ubic), "rb")
+                , open(find("Deuda_Comercial.png", ubic), "rb")
             )
             query.bot.send_photo(update.effective_chat.id
-                , open(find("DeudaExcedida.png", ubic), "rb")
+                , open(find("Deudores_Morosos.png", ubic), "rb")
             )
             query.bot.send_photo(update.effective_chat.id
-                , open(find("DeudaMorosa.png", ubic), "rb")
+                , open(find("Deudores_MorososG.png", ubic), "rb")
             )
             query.bot.send_photo(update.effective_chat.id
-                , open(find("DeudaMorosaGrave.png", ubic), "rb")
+                , open(find("Deudores_GestionJ.png", ubic), "rb")
             )
             query.bot.send_document(update.effective_chat.id
-                , open(find("ClientesDeudores.xlsx", ubic), "rb")
-                , "ClientesDeudores.xlsx"
+                , open(find("Clientes_Deudores.xlsx", ubic), "rb")
+                , "Clientes_Deudores.xlsx"
             )
-
+            query.bot.send_document(update.effective_chat.id
+                , open(find("Remitos_Recibos_Ayer.xlsx", ubic), "rb")
+                , "Remitos_Recibos_Ayer.xlsx"
+            )
+            query.bot.send_document(update.effective_chat.id
+                , open(find("Grandes_Clientes_Baja_Consumo.pdf", ubic), "rb")
+                , "Grandes_Clientes_Baja_Consumo.pdf"
+            )
+            query.bot.send_document(update.effective_chat.id
+                , open(find("Consumo_GC_YER.xlsx", ubic), "rb")
+                , "Consumo_GC_YER.xlsx"
+            )
         except Exception as e:
             query.bot.send_message(update.effective_chat.id
                 , text="Algo falló, revisar consola")
@@ -355,6 +407,7 @@ def button(update, context) -> None:
     # INFO GRANDES DEUDAS
     elif query.data == "Info Grandes Deudas":
         try:
+            run_path(filePath_InfoGrandesDeudas+"DashboardDeudas.py")
             run_path(filePath_InfoGrandesDeudas+"GrandesDeudas.py")
             query.bot.send_photo(update.effective_chat.id
                 , open(filePath_InfoGrandesDeudas+"Info_GrandesDeudores.png"
@@ -366,18 +419,8 @@ def button(update, context) -> None:
                     , "rb"
                 )
             )
-        except Exception as e:  
-            query.bot.send_message(update.effective_chat.id
-                , text="Algo falló, revisar consola")
-            logger.error("", exc_info=1)
-    
-    # INFO DESPACHOS CAMIONEROS
-    elif query.data == "Info Despachos Camioneros":
-        try:
-            run_path(filePath_Info_Despachos_Camioneros+"DespachosCamion.py")
             query.bot.send_photo(update.effective_chat.id
-                , open(filePath_Info_Despachos_Camioneros
-                    + "Info_Despachos_Camioneros.png"
+                , open(filePath_InfoGrandesDeudas+"TablaDeuda.png"
                     , "rb"
                 )
             )
@@ -385,7 +428,7 @@ def button(update, context) -> None:
             query.bot.send_message(update.effective_chat.id
                 , text="Algo falló, revisar consola")
             logger.error("", exc_info=1)
-
+    
     # INFO PENETRACION
     elif query.data == "Info Penetración":
         try:
@@ -414,102 +457,388 @@ def button(update, context) -> None:
                 , text="Algo falló, revisar consola")
             logger.error("", exc_info=1)
 
+    # BALANCE YER
+    elif query.data == "Balance YER":
+        try:
+            balanceYER()
+            query.bot.send_photo(update.effective_chat.id
+                , open(find("balanceYER_Actual.png", ubic)
+                    , "rb"
+                )
+            )
+        except Exception as e:  
+            query.bot.send_message(update.effective_chat.id
+                , text="Algo falló, revisar consola")
+            logger.error("", exc_info=1)
+       
+    # INFO Penetración Lubricantes
+    elif query.data == "Info Penetración Lubricantes":
+        try:
+            run_path(filePath_YPF+"Azcuenaga.py")
+            run_path(filePath_YPF+"Lamadrid.py")
+            run_path(filePath_YPF+"Perdriel1.py")
+            run_path(filePath_YPF+"Perdriel2.py")
+            run_path(filePath_YPF+"Puente_Olive.py")
+            run_path(filePath_YPF+"San_Jose.py")
+            query.bot.send_document(update.effective_chat.id
+                , open(filePath_YPF+"+YPFAzcuenaga.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_document(update.effective_chat.id
+                , open(filePath_YPF+"+YPFLamadrid.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_document(update.effective_chat.id
+                , open(filePath_YPF+"+YPFPerdriel.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_document(update.effective_chat.id
+                , open(filePath_YPF+"+YPFPerdriel2.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_document(update.effective_chat.id
+                , open(filePath_YPF+"+YPFPuente_Olive.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_document(update.effective_chat.id
+                , open(filePath_YPF+"+YPFSan_Jose.png"
+                    , "rb"
+                )
+            )
+
+        except Exception as e:  
+            query.bot.send_message(update.effective_chat.id
+                , text="Algo falló, revisar consola")
+            logger.error("", exc_info=1)
+    # volumenes proyectados
+    elif query.data == "Info Volumenes Proyectados":
+        try:
+            run_path(filePath_InfoSemanal+"InfoVtaLiqProy.py")
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_InfoSemanal+"Info_VtaLiquido_Semanal.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_InfoSemanal+"Info_VtaGNC_Semanal.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_InfoSemanal+"VtaGASOLEOS_Semanal.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_InfoSemanal+"VtaNAFTAS_Semanal.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_InfoSemanal+"VtaGOs_Semanal.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_InfoSemanal+"VtaEUs_Semanal.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_InfoSemanal+"VtaNSs_Semanal.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_InfoSemanal+"VtaNUs_Semanal.png"
+                    , "rb"
+                )
+            )
+        except Exception as e:  
+            query.bot.send_message(update.effective_chat.id
+                , text="Algo falló, revisar consola")
+            logger.error("", exc_info=1)
+
+# INFO MBC Liquidos Dolarizada
+    elif query.data == 'Info MBC Liquidos Dolarizada':
+        try:
+            run_path(filePath_Info_MargenesGasoleos+"/MBCDolares/"+"MBCNaftasDolar.py")
+            run_path(filePath_Info_MargenesGasoleos+"/MBCDolares/"+"MBCGasoleosDolar.py")
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_Info_MargenesGasoleos+"MBCDolarGO.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_Info_MargenesGasoleos+"MBCDolarEU.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_Info_MargenesGasoleos+"MBCDolarNS.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_Info_MargenesGasoleos+"MBCDolarNU.png"
+                    , "rb"
+                )
+            )
+
+        except Exception as e:  
+            query.bot.send_message(update.effective_chat.id
+                , text="Algo falló, revisar consola")
+            logger.error("", exc_info=1)
+
+# INFO Balance Economico Descargas
+    elif query.data == 'Balance Economico Descargas':
+        try:
+            run_path(filePath_Info_Descargas+"Balance_Ventas_Descargas.py")
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_Info_Descargas+"Balance_V_D_GO.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_Info_Descargas+"Balance_V_D_EU.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_Info_Descargas+"Balance_V_D_NS.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_Info_Descargas+"Balance_V_D_NU.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_Info_Descargas+"Balance_V_D_TOTAL.png"
+                    , "rb"
+                )
+            )
+        except Exception as e:  
+            query.bot.send_message(update.effective_chat.id
+                , text="Algo falló, revisar consola")
+            logger.error("", exc_info=1)
+
+# INFO MAS YPF
+    elif query.data == '+ YPF':
+        try:
+            run_path(filePath_YPF+"Azcuenaga.py")
+            run_path(filePath_YPF+"Lamadrid.py")
+            run_path(filePath_YPF+"Perdriel1.py")
+            run_path(filePath_YPF+"Perdriel2.py")
+            run_path(filePath_YPF+"Puente_Olive.py")
+            run_path(filePath_YPF+"San_Jose.py")
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_YPF+"+YPFPerdriel.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_YPF+"+YPFPerdriel2.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_YPF+"+YPFAzcuenaga.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_YPF+"+YPFLamadrid.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_YPF+"+YPFSan_Jose.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_YPF+"+YPFPuente_Olive.png"
+                    , "rb"
+                )
+            )
+
+        except Exception as e:  
+            query.bot.send_message(update.effective_chat.id
+                , text="Algo falló, revisar consola")
+            logger.error("", exc_info=1)
+
+# FALTANTES PLAYA Y ESTADO TURNOS
+    elif query.data == 'Faltantes y Estados Turnos':
+        try:
+            run_path(filePath_Info_Control_Info+"Faltantes_Estado_Turnos.py")
+
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_Info_Control_Info+"scturnos_hoy.png"
+                ,"rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_Info_Control_Info+"scturnos_ayer.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_Info_Control_Info+"plturnos_hoy.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_Info_Control_Info+"plturnos_ayer.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_Info_Control_Info+"faltantes_full.png"
+                    , "rb"
+                )
+            )
+            query.bot.send_photo(update.effective_chat.id
+                , open(filePath_Info_Control_Info+"faltantes_playa.png"
+                    , "rb"
+                )
+            )
+
+        except Exception as e:  
+            query.bot.send_message(update.effective_chat.id
+                , text="Algo falló, revisar consola")
+            logger.error("", exc_info=1)
 
     ####################################################
     # CallbackQuery responses for /resend /reenviar
     ####################################################
 
-    # INFO DIARIO
-    elif query.data == "Info Diario":
+    # INFO GLOBALES
+    
+    elif query.data == "Info Globales":
         try:
             query.bot.send_message(update.effective_chat.id
-                , text="Activando Reporte Diario en 10 segundos")
+                , text="Activando Reporte Info Globales en 10 segundos")
 
-            context.job_queue.run_once(envio_reporte_ivo, 10)
+            context.job_queue.run_once(reportes_ivo_diario_InfoGlobal, 10)
 
         except Exception as e:
             query.bot.send_message(update.effective_chat.id
                 , text="Algo falló, revisar consola")
             logger.error("", exc_info=1)
-
-    # INFO COMERCIAL
-    elif query.data == "Info Comercial":
-        try:
-            query.bot.send_message(update.effective_chat.id
-                , text="Activando Reporte Comercial en 10 segundos")
-
-            context.job_queue.run_once(envio_reporte_comercial, 10)
-
-        except Exception as e:  
-            query.bot.send_message(update.effective_chat.id
-                , text="Algo falló, revisar consola")
-            logger.error("", exc_info=1)
-
-    # INFO CFO
-    elif query.data == "Info CFO":
-        try:
-            query.bot.send_message(update.effective_chat.id
-                , text="Activando Reporte CFO en 10 segundos")
-
-            context.job_queue.run_once(envio_reporte_CFO, 10)
-
-        except Exception as e:  
-            query.bot.send_message(update.effective_chat.id
-                , text="Algo falló, revisar consola")
-            logger.error("", exc_info=1)
     
+    # INFO PRESUPUESTOS
+    elif query.data == "Info Presupuestos":
+        try:
+            query.bot.send_message(update.effective_chat.id
+                , text= "Activando Reporte Diario Info Presupuestos, tiempo estimado: 1 minuto")
+            context.job_queue.run_once(reportes_ivo_Presupuestos,10)
+
+        except Exception as e:
+            query.bot.send_message(update.effective_chat.id
+                , text="Algo fallo, revisar consola")
+            logger.error("",exc_info=1)
+    # INFO METRICAS
+    elif query.data == "Metricas":
+        try:
+            query.bot.send_message(update.effective_chat.id
+                , text= "Activando Reporte Diario Metricas, tiempo estimado: 1 minuto")
+            context.job_queue.run_once(reportes_ivo_diario_Metricas,10)
+
+        except Exception as e:
+            query.bot.send_message(update.effective_chat.id
+                , text="Algo fallo, revisar consola")
+            logger.error("",exc_info=1)
+
+    # INFO FINANCIERA
+    elif query.data == "Informes Financieros":
+        try:
+            query.bot.send_message(update.effective_chat.id
+                , text="Activando Reporte Informes Financieros en 10 segundos")
+
+            context.job_queue.run_once(reportes_ivo_diario_Financieros, 10)
+
+        except Exception as e:  
+            query.bot.send_message(update.effective_chat.id
+                , text="Algo falló, revisar consola")
+            logger.error("", exc_info=1)
+
     # INFO SEMANAL
     elif query.data == "Info Semanal":
         try:
             query.bot.send_message(update.effective_chat.id
-                , text="Activando Reporte Periferia Semanal en 10seg y Reporte Semanal en 1min")
+                , text="Activando Reporte Info Semanal en 10 segundos")
 
-            context.job_queue.run_once(envio_reporte_semanal, 60)
-            context.job_queue.run_once(envio_reporte_periferia_semanal, 10)
+            context.job_queue.run_once(reportes_ivo_semanal_InfoGlobal, 10)
+            context.job_queue.run_once(reportes_ivo_semanal_Metricas, 10)
+            context.job_queue.run_once(envio_reporte_MBCOperativo, 10)
+            context.job_queue.run_once(envio_reporte_MBCGerencial, 10)
+            context.job_queue.run_once(envio_reporte_Grandes_Clientes_semanal, 10)
 
         except Exception as e:  
             query.bot.send_message(update.effective_chat.id
                 , text="Algo falló, revisar consola")
             logger.error("", exc_info=1)
 
-    # INFO CHEQUES
-    elif query.data == "Info cheques":
+
+    # INFO MBC
+    elif query.data == "Info MBC":
         try:
             query.bot.send_message(update.effective_chat.id
-                , text="Activando Reporte Cheques en 10 segundos")
+                , text="Activando Reporte MBC Semanal en 10seg y Reporte MBC Diario en 1min")
 
-            context.job_queue.run_once(envio_reporte_cheques, 10)
+            context.job_queue.run_once(envio_reporte_MBCGerencial_Diario, 10)
+
+        except Exception as e:  
+            query.bot.send_message(update.effective_chat.id
+                , text="Algo falló, revisar consola")
+            logger.error("", exc_info=1)
+
+    # INFO ABASTECIMIENTO
+    elif query.data == "Info Abastecimiento":
+        try:
+            query.bot.send_message(update.effective_chat.id
+                , text="Activando Reporte Abastecimiento en 10 segundos")
+
+            context.job_queue.run_once(envio_reporte_Abastecimiento, 10)
 
         except Exception as e:  
             query.bot.send_message(update.effective_chat.id
                 , text="Algo falló, revisar consola")
             logger.error("", exc_info=1)
     
-    # INFO LAPUCHESKY
-    elif query.data == "Info Lapuchesky":
+    # INFO COMERCIAL RETAIL
+    elif query.data == "Info Comercial Retail":
         try:
             query.bot.send_message(update.effective_chat.id
-                , text="Activando Reporte Lapuchesky en 10 segundos")
+                , text="Activando Reporte Comercial Retail en minutos")
 
-            context.job_queue.run_once(envio_reporte_lapuchesky, 10)
+            context.job_queue.run_once(envio_reporte_ComercialRetail, 10)
 
         except Exception as e:  
             query.bot.send_message(update.effective_chat.id
                 , text="Algo falló, revisar consola")
             logger.error("", exc_info=1)
     
-    # INFO CONCILIACIONES
-    elif query.data == "Info Conciliaciones":
+    # INFO GRANDES CLIENTES
+    elif query.data == "Info Grandes Clientes":
         try:
             query.bot.send_message(update.effective_chat.id
-                , text="Activando Reporte Conciliaciones en 10 segundos")
+                , text="Activando Reporte Grandes Clientes en 10 segundos")
 
-            context.job_queue.run_once(envio_reporte_conciliaciones, 10)
+            context.job_queue.run_once(envio_reporte_Grandes_Clientes, 10)
 
         except Exception as e:  
             query.bot.send_message(update.effective_chat.id
                 , text="Algo falló, revisar consola")
             logger.error("", exc_info=1)
+
     
 
     ##################################################
@@ -586,7 +915,6 @@ def set_envioDiario(update, context) -> None:
             , horario_tz
             , name="info_diario"
         )
-
         text = "Informe Diario seteado!"
         if job_removed:
             text = text + " Horario de envío actualizado."
@@ -682,15 +1010,6 @@ def envio_reporte_ivo(context):
         logger.error("Error al resetear Info GrandesDeudas", exc_info=1)
 
     try:
-        run_path(filePath_Info_Despachos_Camioneros+"DespachosCamion.py")
-        logger.info("Info Despachos_Camioneros reseteado")
-    except Exception as e:
-        context.bot.send_message(id_Autorizados[0]
-            , text="Error al resetear Info Despachos_Camioneros"
-        )
-        logger.error("Error al resetear Despachos_Camioneros", exc_info=1)
-
-    try:
         penetracionRedMas()
         logger.info("Info Penetracion_RedMas reseteado")
     except Exception as e:
@@ -762,14 +1081,1784 @@ def envio_reporte_ivo(context):
             , "ClientesDeudores.xlsx"
         )
 
-        context.bot.send_photo(
-            ids
-            , open(filePath_Info_Despachos_Camioneros+
-                "Info_Despachos_Camioneros.png", "rb")
-            , "Despachos Camioneros"
+
+
+###############################################################
+######################### NUEVO REPORTES IVO ##################
+###############################################################
+#### INFO INVERSIONES DIARIO
+def reportes_ivo_Inversiones_D_B(context):
+    logger.info("\n->Comenzando generación de informes<-")
+
+    try:
+        run_path(filePath_Info_Control_Info+"Inversiones_IBM.py")
+        logger.info("Info Inversiones reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Inversiones"
         )
+        logger.error("Error al resetear Faltantes Turnos", exc_info=1)
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+
+    chatIDIBM = -4246341570
+
+    context.bot.send_photo(
+        chatIDIBM
+        , open(filePath_Info_Control_Info+"Inversiones_IBM_Bonos.png", "rb")
+        , "Precio Bonos"
+    )
 
 
+#### INFO INVERSIONES DIARIO
+def reportes_ivo_Inversiones_D(context):
+    logger.info("\n->Comenzando generación de informes<-")
+
+    try:
+        run_path(filePath_Info_Control_Info+"Inversiones_IBM.py")
+        logger.info("Info Inversiones reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Inversiones"
+        )
+        logger.error("Error al resetear Faltantes Turnos", exc_info=1)
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+
+    chatIDIBM = -4246341570
+
+    context.bot.send_photo(
+        chatIDIBM
+        , open(filePath_Info_Control_Info+"Inversiones_IBM.png", "rb")
+        , "Cartera actual"
+    )
+    context.bot.send_photo(
+        chatIDIBM
+        , open(filePath_Info_Control_Info+"Inversiones_IBM_Capital.png", "rb")
+        , "Capital"
+    )
+
+#### INFO INVERSIONES SEMANAL
+def reportes_ivo_Inversiones_S(context):
+    logger.info("\n->Comenzando generación de informes<-")
+
+    try:
+        run_path(filePath_Info_Control_Info+"Inversiones_IBM.py")
+        logger.info("Info Inversiones reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Inversiones"
+        )
+        logger.error("Error al resetear Faltantes Turnos", exc_info=1)
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+
+    chatIDIBM = -4246341570
+
+    context.bot.send_photo(
+        chatIDIBM
+        , open(filePath_Info_Control_Info+"Inversiones_IBM_Objetivos.png", "rb")
+        , "Cartera actual Objetivos"
+    )
+    context.bot.send_photo(
+        chatIDIBM
+        , open(filePath_Info_Control_Info+"Inversiones_IBM_Operaciones.png", "rb")
+        , "Operaciones Realizadas"
+    )
+
+####  ESTADO TURNOS Y FALTANTES
+def reportes_ivo_diario_InfoGlobal_ET_F(context):
+    logger.info("\n->Comenzando generación de informes<-")
+
+    try:
+        run_path(filePath_Info_Control_Info+"Faltantes_Estado_Turnos.py")
+        logger.info("Info Faltantes Turnos reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Faltantes Turnos"
+        )
+        logger.error("Error al resetear Faltantes Turnos", exc_info=1)
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+
+    InfoGlobales = -4009422361 #AUDITORIA TURNOS
+
+    context.bot.send_message(
+        InfoGlobales
+        , text="INFORMES AUTOMÁTICOS "
+        + fechahoy
+        + "\n Datos relevados hasta ayer"
+    )
+    context.bot.send_photo(
+        InfoGlobales
+        , open(filePath_Info_Control_Info+"scturnos_ayer.png", "rb")
+        , "Estado Turnos FULL Ayer"
+    )
+    context.bot.send_photo(
+        InfoGlobales
+        , open(filePath_Info_Control_Info+"plturnos_ayer.png", "rb")
+        , "Estado Turnos PLAYA Ayer"
+    )
+    context.bot.send_photo(
+        InfoGlobales
+        , open(filePath_Info_Control_Info+"faltantes_full.png", "rb")
+        , "Faltantes Acumulados FULL"
+    )
+    context.bot.send_photo(
+        InfoGlobales
+        , open(filePath_Info_Control_Info+"faltantes_playa.png", "rb")
+        , "Faltantes Acumulados Playa"
+    )
+    context.bot.send_photo(
+        InfoGlobales
+        , open(filePath_Info_Control_Info+"turnos_sin_auditar_pl.png", "rb")
+        , "Estado Turnos PLAYA sin Auditar"
+    )
+    context.bot.send_photo(
+        InfoGlobales
+        , open(filePath_Info_Control_Info+"turnos_sin_auditar_full.png", "rb")
+        , "Estado Turnos FULL sin Auditar"
+    )
+
+#### INFO GLOBAL DIARIO
+def reportes_ivo_diario_InfoGlobal(context):
+    logger.info("\n->Comenzando generación de informes<-")
+
+    try:
+        run_path(filePath_Info_Pen_Salon+"PromedioVtasSalonIntermensual.py")
+        logger.info("Info Ventas Salon reseteado")
+        ventaLubri()
+        logger.info("Info Venta_Lubricante reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Venta_Lubricante"
+        )
+        logger.error("Error al resetear Venta_Lubricante", exc_info=1)
+    try:
+        run_path(filePath_InfoVtaComb+"TotalesPorCombustible.py")
+        logger.info("Info TotalesPorCombustible reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info TotalesPorCombustible"
+        )
+        logger.error("Error al resetear Info TotalesPorCombustible", exc_info=1)
+
+    try:
+        redControlSemanal()
+        logger.info("Info redControlSemanal reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info redControlSemanal"
+        )
+        logger.error("Error al resetear redControlSemanal", exc_info=1)
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+
+    InfoGlobales = rumaos_Informes_Globales
+
+    context.bot.send_message(
+        InfoGlobales
+        , text="INFORMES AUTOMÁTICOS "
+        + fechahoy
+        + "\n Datos relevados hasta ayer"
+    )
+    """
+    context.bot.send_photo(
+        InfoGlobales
+        , open(find("DeudaComercial.png", ubic), "rb")
+        , "Deuda Comercial"
+    )
+    context.bot.send_photo(
+        InfoGlobales
+        , open(find("DeudaExcedida.png", ubic), "rb")
+        , "Clientes Deudores Excedidos"
+    )
+    context.bot.send_photo(
+        InfoGlobales
+        , open(find("DeudaMorosa.png", ubic), "rb")
+        , "Clientes Deudores Morosos"
+    )
+    context.bot.send_photo(
+        InfoGlobales
+        , open(find("DeudaMorosaGrave.png", ubic), "rb")
+        , "Clientes Deudores Morosos Graves"
+    )
+    """
+    context.bot.send_photo(
+        InfoGlobales
+        , open(filePath_InfoVtaComb+"Info_VolumenVentas.png", "rb")
+        , "Venta Total por Combustible de Ayer"
+    )
+
+    context.bot.send_photo(
+        InfoGlobales
+        , open(find("Info_VentaLubri.png", ubic), "rb")
+        , "Venta Lubricantes"
+    )
+
+    context.bot.send_photo(
+        InfoGlobales
+        , open(find("Info_Promedio_VtasIntermensual.png", ubic), "rb")
+        , "Ventas de Salon"
+    )
+
+
+#### INFO GLOBAL SEMANAL
+def reportes_ivo_semanal_InfoGlobal(context):
+
+    logger.info("\n->Comenzando generación de informe semanal<-")
+
+    try:
+        run_path(filePath_InfoSemanal+"InfoVtaLiqProy.py")
+        logger.info("Info vtaSemanalProy_Liq_GNC reseteado")
+        run_path(filePath_InfoVtaComb+"Mix_Ventas_por_Vendedor.py")
+        logger.info("Info Mix Ventas por Vendedor reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info vtaSemanalProy_Liq_GNC"
+        )
+        logger.error("Error al resetear vtaSemanalProy_Liq_GNC y mix por vendedor", exc_info=1)
+    
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    weekStart = (dt.date.today()-dt.timedelta(days=7)).strftime("%d/%m/%y")
+    weekEnd = (dt.date.today()-dt.timedelta(days=1)).strftime("%d/%m/%y")
+
+
+    InfoGlobalesSemanal = rumaos_Informes_Globales
+
+    context.bot.send_message(
+        InfoGlobalesSemanal
+        , text="INFORMES AUTOMÁTICOS SEMANALES\n" 
+            + "PERÍODO "
+            + weekStart
+            + " AL "
+            + weekEnd
+    )
+
+    context.bot.send_photo(
+        InfoGlobalesSemanal
+        , open(find("VtaNAFTAS_Semanal.png", ubic), "rb")
+        , "Venta Naftas Proyectado"
+    )
+    context.bot.send_photo(
+        InfoGlobalesSemanal
+        , open(find("VtaGASOLEOS_Semanal.png", ubic), "rb")
+        , "Venta Gasoleos Proyectado"
+    )
+    context.bot.send_photo(
+        InfoGlobalesSemanal
+        , open(find("Info_VtaGNC_Semanal.png", ubic), "rb")
+        , "Venta de GNC Proyectado"
+    )
+    context.bot.send_photo(
+        InfoGlobalesSemanal
+        , open(find("Info_VtaLiquido_Semanal.png", ubic), "rb")
+        , "Venta de Liquidos Proyectado"
+    )
+    context.bot.send_photo(
+        InfoGlobalesSemanal
+        , open(find("Mix_Ventas_Vendedor_Gasoleos.png", ubic), "rb")
+        , "Volumen Vendido por Vendedor Gasoleos"
+    )
+    context.bot.send_photo(
+        InfoGlobalesSemanal
+        , open(find("Mix_Ventas_Vendedor_Naftas.png", ubic), "rb")
+        , "Volumen Vendido por Vendedor Naftas"
+    )
+    context.bot.send_photo(
+        InfoGlobalesSemanal
+        , open(find("Info_RedControlLiq_Semanal.png", ubic), "rb")
+        , "Red Control Líquido"
+    )
+
+#### INFO PRESUPUESTOS Combustibles
+def reportes_ivo_PresupuestosCombustibles(context):
+    logger.info("\n->Comenzando generación de informe Presupuestos Combustibles<-")
+    
+    try:
+        run_path(filePath_Info_Presu_Gas+"Presupuesto_GNC.py")
+        run_path(filePath_Info_Presu_Gas+"Presupuesto_Naftas.py")
+        run_path(filePath_Info_Presu_Gas+"Presupuesto_Gasoleos.py")
+
+        logger.info("Info Ejecucion Presupuestaria reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados
+            , text="Error al resetear Info Ejecucion Presupuestaria"
+        )
+        logger.error("Error al resetear Info Ejecucion Presupuestaria", exc_info=1)
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    chat_id = rumaos_Presupuestos
+   
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS Ejecucion Presupuestos "
+        + fechahoy 
+        + "\n Datos relevados hasta ayer"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Presu_Gas+"Info_Presupuesto_GO_Acumulado.png", "rb")
+        , "Info Ejecucion Presupuestaria Ultra Diesel"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Presu_Gas+"Info_Presupuesto_EU_Acumulado.png", "rb")
+        , "Info Ejecucion Presupuestaria Infinia Diesel"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Presu_Gas+"Info_Presupuesto_NS_Acumulado.png", "rb")
+        , "Info Ejecucion Presupuestaria Nafta Super"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Presu_Gas+"Info_Presupuesto_NU_Acumulado.png", "rb")
+        , "Info Ejecucion Presupuestaria Infinia Nafta"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Presu_Gas+"Info_Presupuesto_GNC_Acumulado.png", "rb")
+        , "Info Ejecucion Presupuestaria GNC"
+    )
+
+
+#### INFO PRESUPUESTOS DIARIO
+def reportes_ivo_Presupuestos(context):
+    logger.info("\n->Comenzando generación de informe Presupuestos<-")
+
+    try:
+        run_path(filePath_Info_Presu_Gas+"ObjetivoLubricantes.py")
+        run_path(filePath_Info_Presu_Gas+"Objetivos_Fulls.py")
+        run_path(filePath_Info_Presu_Gas+"ObjetivosGeneral.py")
+
+        logger.info("Info Ejecucion Presupuestaria reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados
+            , text="Error al resetear Info Ejecucion Presupuestaria"
+        )
+        logger.error("Error al resetear Info Ejecucion Presupuestaria", exc_info=1)
+
+
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    chat_id = rumaosMasYPF
+   
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS Ejecucion Presupuestos "
+        + fechahoy 
+        + "\n Datos relevados hasta ayer"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Presu_Gas+"Objetivos_Naftas.png", "rb")
+        , "Objetivo Presupuestario Naftas"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Presu_Gas+"Objetivos_Gasoil.png", "rb")
+        , "Objetivo Presupuestario Gasoleos"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Presu_Gas +"Objetivos_GNC.png", "rb")
+        , "Objetivo Presupuestario GNC"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Presu_Gas+"Objetivos_Fulls.png", "rb")
+        , "Objetivo Presupuestario Full"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Presu_Gas+"Objetivos_Lubricantes.png", "rb")
+        , "Objetivo Presupuestario Lubricantes"
+    )
+
+### INFO METRICAS DIARIO
+def reportes_ivo_diario_Metricas(context):
+    logger.info("\n->Comenzando generación de informe Metricas Diario<-")
+
+    try:
+        penetracionRedMas()
+        logger.info("Info Penetracion_RedMas reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Penetracion_RedMas"
+        )
+        logger.error("Error al resetear Penetracion_RedMas", exc_info=1)
+
+    try:
+        run_path(filePath_Info_Control_Info+"Calibracion_tanques.py")
+        logger.info("Info calibracion tanques reseteado")
+        run_path(filePath_Info_Control_Info+"Calibracion_GNC_Alternativa.py")
+        logger.info("Info calibracion GNC reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Penetracion_RedMas"
+        )
+        logger.error("Error al resetear Calibracion Tanques/GNC", exc_info=1)
+
+
+
+    try:
+        run_path(filePath_Info_Pen_Salon+"PromedioVtasSalon.py")
+        logger.info("Info Ticket Promedio Ventas Salon")
+        run_path(filePath_Info_Presu_Gas+"Mix.py")
+        logger.info("Mix reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Ticket Promedio Ventas Salon"
+        )
+        logger.error("Error al resetear Info Ticket Promedio Ventas Salon", exc_info=1)
+
+
+    try:
+        run_path(filePath_Info_Descargas+"VolumenPromedio.py")
+        logger.info("Evolucion Volumenes Promedio reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Evolucion Volumenes Promedio"
+        )
+        logger.error("Error al resetear Evolucion Volumenes Promedio", exc_info=1)
+
+
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    chat_id = rumaos_Informes_Globales
+    calibracion = rumaosCalibracion_Control
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS Periferia "
+        + fechahoy 
+        + "\n Datos relevados hasta ayer"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(find("VolumenPromGO.png", ubic), "rb")
+        , "Evolucion Consumo Promedio por Cliente Ultra Diesel"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("VolumenPromEU.png", ubic), "rb")
+        , "Evolucion Consumo Promedio por Cliente Infinia Diesel"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("VolumenPromNS.png", ubic), "rb")
+        , "Evolucion Consumo Promedio por Cliente Nafta Super"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("VolumenPromNU.png", ubic), "rb")
+        , "Evolucion Consumo Promedio por Cliente Infinia Nafta"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("VolumenPromGNC.png", ubic), "rb")
+        , "Evolucion Consumo Promedio por Cliente GNC"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Control_Info+"Calibracion_tanques_semanal.png", "rb")
+        , "Mermas Semanal Liquidos"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Control_Info+"Calibracion_GNC_Acumulado.png", "rb")
+        , "Mermas Semanal GNC"
+    )
+
+### INFO METRICAS SEMANAL
+def reportes_ivo_semanal_Metricas(context):
+    logger.info("\n->Comenzando generación de informe Metricas Semanal<-")
+
+    try:
+        redControlSemanal()
+        logger.info("Info redControlSemanal reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info redControlSemanal"
+        )
+        logger.error("Error al resetear redControlSemanal", exc_info=1)
+
+
+    try:
+        run_path(filePath_YPF+"Azcuenaga.py")
+        logger.info("Info +YPF Reseteado")
+        run_path(filePath_YPF+"Lamadrid.py")
+        logger.info("Info +YPF Reseteado")
+        run_path(filePath_YPF+"Perdriel1.py")
+        logger.info("Info +YPF Reseteado")
+        run_path(filePath_YPF+"Perdriel2.py")
+        logger.info("Info +YPF Reseteado")
+        run_path(filePath_YPF+"Puente_Olive.py")
+        logger.info("Info +YPF Reseteado")
+        run_path(filePath_YPF+"San_Jose.py")
+        logger.info("Info +YPF Reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info +YPF"
+        )
+        logger.error("Error al resetear Info +YPF", exc_info=1)
+
+    try:
+        run_path(filePath_Pen_APP_YPF+"PenetracionUENAppYPF.py")
+        logger.info("Info Penetracion App YPF por Estacion")
+
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Penetracion App YPF"
+        )
+        logger.error("Error al resetear Info Penetracion App YPF", exc_info=1)
+    try:
+        run_path(filePath_RedMas+"RedMasClientesActivos.py")
+        logger.info("CRM Gasoleos y GNC")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear CRM gasoleos y GNC"
+        )
+        logger.error("Error al resetear CRM gasoleos y GNC", exc_info=1)
+
+
+    try:
+        penetracionRMSemanal()
+        run_path(filePath_Pen_RED_PAGO+"PenRedPagoCantidad.py")
+        logger.info("Info Penetracion Red Pago Cantidad")
+        run_path(filePath_Pen_RED_PAGO+"PenRedPagoPesos.py")
+        logger.info("Info Penetracion Red Pago Pesos")
+        run_path(filePath_Pen_RED_PAGO+"PenRedPagoServiC.py")
+        logger.info("Info Penetracion Red Pago Servi Cantidad")
+        run_path(filePath_Pen_RED_PAGO+"PenRedPagoServiP.py")
+        logger.info("Info Penetracion Red Pago Servi Pesos")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Penetracion Red Pago"
+        )
+        logger.error("Error al resetear Info Penetracion Red Pago", exc_info=1)
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    weekStart = (dt.date.today()-dt.timedelta(days=7)).strftime("%d/%m/%y")
+    weekEnd = (dt.date.today()-dt.timedelta(days=1)).strftime("%d/%m/%y")
+
+
+    chat_id = rumaos_Informes_Globales
+    joaquinBriffe= 1879091694
+    masYPF=rumaosMasYPF #Grupo +YPF
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS SEMANALES\n" 
+            + "PERÍODO "
+            + weekStart
+            + " AL "
+            + weekEnd
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(find("Penetracion_Liquido_Semanal.png", ubic), "rb")
+        , "Penetración RedMás Semanal Liquidos"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("Penetracion_GNC_Semanal.png", ubic), "rb")
+        , "Penetración RedMás Semanal GNC"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Pen_APP_YPF+"Info_Penetracion_UEN.png", "rb")
+        , "Info Penetracion App YPF por Estacion"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Pen_RED_PAGO+"PenRedPagoCantidad.png", "rb")
+        , "Info Penetracion RedPago Playa Cantidad"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Pen_RED_PAGO+"PenRedPagoServiC.png", "rb")
+        , "Info Penetracion RedPago ServiCompras Cantidad"
+    )
+    context.bot.send_photo(
+        joaquinBriffe
+        , open(filePath_YPF +
+            "+YPFPerdriel.png", "rb")
+        , "+YPF Perdriel 1"
+    )
+    context.bot.send_photo(
+        joaquinBriffe
+        , open(filePath_YPF +
+            "+YPFPerdriel2.png", "rb")
+        , "+YPF Perdriel 2"
+    )
+    context.bot.send_photo(
+        joaquinBriffe
+        , open(filePath_YPF +
+            "+YPFAzcuenaga.png", "rb")
+        , "+YPF Azcuenaga"
+    )
+    context.bot.send_photo(
+        joaquinBriffe
+        , open(filePath_YPF +
+            "+YPFLamadrid.png", "rb")
+        , "+YPF Lamadrid"
+    )
+    context.bot.send_photo(
+        joaquinBriffe
+        , open(filePath_YPF +
+            "+YPFSan_Jose.png", "rb")
+        , "+YPF San Jose"
+    )
+    context.bot.send_photo(
+        joaquinBriffe
+        , open(filePath_YPF +
+            "+YPFPuente_Olive.png", "rb")
+        , "+YPF Puente Olive"
+    )
+    context.bot.send_photo(
+        joaquinBriffe
+        , open(filePath_RedMas +
+            "CRM.png", "rb")
+        , "CRM Gasoleos y GNC"
+    )
+
+
+#### INFO FINANCIEROS DIARIOS
+def reportes_ivo_diario_Financieros(context):
+    logger.info("\n->Comenzando generación de informe Financiero<-")
+
+    try:
+        arqueos()
+        logger.info("Info Arqueos reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Arqueos"
+        )
+        logger.error("Error al resetear Arqueos", exc_info=1)
+
+    try:
+        chequesSaldos()
+        logger.info("Info chequesSaldos reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info chequesSaldos"
+        )
+        logger.error("Error al resetear chequesSaldos", exc_info=1)
+
+    try:
+        bancosSaldos()
+        logger.info("Info BancosSaldos reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info BancosSaldos"
+        )
+        logger.error("Error al resetear BancosSaldos", exc_info=1)
+
+    try:
+        run_path(filePath_InfoGrandesDeudas+"DashboardDeudas.py")
+        logger.info("Info Deuda Clientes reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Deuda Clientes"
+        )
+        logger.error("Error al resetear Deuda Clientes", exc_info=1)
+
+
+    try:
+        usos_SGFin()
+        logger.info("Info Usos_SGFin reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Usos_SGFin"
+        )
+        logger.error("Error al resetear Usos_SGFin", exc_info=1)
+
+
+    try:
+        activosCorrientes()
+        logger.info("Info activosCorrientes reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info activosCorrientes"
+        )
+        logger.error("Error al resetear activosCorrientes", exc_info=1)
+
+    try:
+        pasivosCorrientes()
+        logger.info("Info pasivosCorrientes reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info pasivosCorrientes"
+        )
+        logger.error("Error al resetear pasivosCorrientes", exc_info=1)
+
+    try:
+        run_path(filePath_InfoGrandesDeudas+"DeudaClientes.py")
+        logger.info("Info Deuda Clientes reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Deuda"
+        )
+        logger.error("Error al resetear Info Deuda", exc_info=1)
+
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+
+    # Where to send the things
+    chat_id = rumaos_Informes_Financieros
+
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS "
+            + fechahoy
+            + "\n Datos actualizados al momento de emisión"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(find("Arqueos.png", ubic), "rb")
+        , "Arqueos"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(find("ArqueosUSD.png", ubic), "rb")
+        , "Arqueo en Dolares"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(find("ChequesSaldos.png", ubic), "rb")
+        , "Cheques Saldos"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(find("BancosSaldos.png", ubic), "rb")
+        , "Bancos Saldos"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(find("Usos_SGFin.png", ubic), "rb")
+        , "Egresos Por Uso"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(find("activosCorrientes.png", ubic), "rb")
+        , "Activos Corrientes"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(find("PasivosCorrientes.png", ubic), "rb")
+        , "Pasivos Corrientes"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("Deuda_Comercial.png", ubic), "rb")
+        , "Deuda Comercial"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("Deudores_Morosos.png", ubic), "rb")
+        , "Clientes Deudores Morosos"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("Deudores_MorososG.png", ubic), "rb")
+        , "Clientes Deudores Morosos Graves"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("Deudores_GestionJ.png", ubic), "rb")
+        , "Clientes Deudores Gestion Judicial"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("TablaDeuda.png", ubic), "rb")
+        , "Estado de Deuda Comercial"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("TablaDeudaVolumen.png", ubic), "rb")
+        , "Estado de Deuda Comercial Volumenes"
+    )
+
+#### GRUPO MBC 
+
+def envio_reporte_MBC_IVO(context):
+    logger.info("\n->Comenzando generación de informe MBC Gerenial<-")
+
+    try:
+        run_path(filePath_Info_MargenesGasoleos+"MargenGNCN.py")
+        logger.info("Info Margen GNC")
+        run_path(filePath_Info_MargenesGasoleos+"MargenNaftasN.py")
+        logger.info("Info Margen Naftas")
+        run_path(filePath_Info_MargenesGasoleos+"MargenGasoleosN.py")
+        logger.info("Info Margen Gasoleos por Estacion")
+        run_path(filePath_Info_MargenesGasoleos+"ConsolidadoSalon.py")
+        logger.info("Info Margen Gasoleos por Estacion")
+        run_path(filePath_Info_MargenesGasoleos+"MargenEmpresa.py")
+        logger.info("Info Margen Consolidado")
+        run_path(filePath_Info_MargenesGasoleos+"MargenLubricantes.py")
+        logger.info("Info Margen Lubricantes por Estacion")
+        run_path(filePath_Info_Presu_Gas+"Mix.py")
+        logger.info("Mix reseteado")
+
+
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Margenes"
+        )
+        logger.error("Error al resetear Info Margenes", exc_info=1)
+    
+    try:
+        run_path(filePath_InfoSemanal+"InfoVtaLiqProy.py")
+        logger.info("Info vtaSemanalProy_Liq_GNC reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info vtaSemanalProy_Liq_GNC"
+        )
+        logger.error("Error al resetear vtaSemanalProy_Liq_GNC", exc_info=1)
+
+
+
+    try:
+        run_path(filePath_Info_Margenes+"MargenTotales.py")
+        logger.info("Info Margen Salon Totales Reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Margenes Salon"
+        )
+        logger.error("Error al resetear Info Margenes Salon", exc_info=1)
+
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+
+    chat_id = rumaos_Informes_MBC
+   
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS MBC Gerencial Semanal"
+        + fechahoy 
+        + "\n Datos relevados hasta ayer"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_MargenesGasoleos+"MBCGNC.png", "rb")
+        , "Info Margenes GNC"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_MargenesGasoleos+"MBCNaftasNS.png", "rb")
+        , "Info Margenes Nafta Super"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_MargenesGasoleos+"MBCNaftasNU.png", "rb")
+        , "Info Margenes Infinia Nafta"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_MargenesGasoleos+"MBCGasoleosGO.png", "rb")
+        , "Info Margenes Gasoleos Ultra Diesel"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_MargenesGasoleos+"MBCGasoleosEU.png", "rb")
+        , "Info Margenes Gasoleos Infinia Diesel"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_MargenesGasoleos+"MBCSalon.png", "rb")
+        , "Info Margenes Salon"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_MargenesGasoleos+"MargenLubri.png", "rb")
+        , "Info Margenes Lubricantes"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Margenes+"MARGENESTOTALES.png", "rb")
+        , "Info Margenes Salon Totales por Familias"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_MargenesGasoleos+"ConsolidadoEmpresa.png", "rb")
+        , "Info Margenes Consolidado Empresa"
+    )
+
+#### Check Reporte Finanzas
+def envio_Check_Finanzas(context):
+    logger.info("\n->Comenzando generación de informe Check Finanzas<-")
+    try:
+        run_path(filePath_Info_Control_Info+"checkFinanzas.py")
+        logger.info("Check Finanzas")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Deuda"
+        )
+        logger.error("Error al Checkear Datos", exc_info=1)
+
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+
+    # Where to send the things
+    chat_id = rumaos_Informes_Financieros
+
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS "
+            + fechahoy
+            + "\n Datos actualizados al momento de emisión"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Control_Info+"checkeo_Eduardo.png", "rb")
+        , "Check Informacion Eduardo"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Control_Info+"checkeo_Kamel.png", "rb")
+        , "Check Informacion Kamel"
+    )
+
+#### Dashboard Eduardo
+def envio_DB_Eduardo(context):
+    logger.info("\n->Comenzando generación de informe Dashboard Eduardo <-")
+    try:
+        run_path(filePath_Eduardo + "Dahsboard_Eduardo.py")
+        logger.info("Dashboard Eduardo")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Deuda"
+        )
+        logger.error("Error al emitir el reporte Dashboard Eduardo", exc_info=1)
+
+
+    nombre_mes_Actual = "JUNIO"
+
+    nombre_mes_Anterior = " - MAYO - "
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+
+    # Where to send the things
+    chat_id = rumaos_Informes_Globales
+
+    context.bot.send_message(
+        chat_id
+        , text="INFORME GASOLEOS"
+            + nombre_mes_Anterior + nombre_mes_Actual
+            + "\n Datos actualizados al momento de emisión"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Eduardo+"DE_Comercial_Final.png", "rb")
+        , "INDICADORES COMERCIALES" + nombre_mes_Anterior + nombre_mes_Actual
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Eduardo+"DE_Economico_Final.png", "rb")
+        , "INDICADORES ECONOMICOS" + nombre_mes_Anterior + nombre_mes_Actual
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Eduardo+"DE_Financieros_Final.png", "rb")
+        , "INDICADORES FINANCIEROS" + nombre_mes_Anterior + nombre_mes_Actual
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Eduardo+"Rdo_Renta_Presupuestada.png", "rb")
+        , "RESULTADOS PRESUPUESTADOS - JUNIO"
+    )
+##################################################################
+####################### CANALES OPERATIVOS #######################
+##################################################################
+
+#####################################
+#### Actualizacion Info DASHBOARD SHEET ####
+#####################################
+
+def actualizacion_Info_Sheet(context):
+    logger.info("\n->Comenzando generación de Actualizacion de Sheets<-")
+
+    try:
+        run_path(filePath_SHEET+"Dolar_sheet.py")
+        logger.info("Dolar Sheet Actualizado")
+        run_path(filePath_SHEET+"IPC_sheet.py")
+        logger.info("IPC Sheet Actualizado")
+        run_path(filePath_SHEET+"MBC_sheet.py")
+        logger.info("MBC Sheet Actualizado")
+        run_path(filePath_SHEET+"DeudaSheet.py")
+        logger.info("Deuda Sheet Actualizado")
+
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al Actualizar Sheets"
+        )
+        logger.error("Error al Actualizar Sheets", exc_info=1)
+
+
+
+
+
+
+#####################################
+#### GRUPO MBC Operativo Semanal ####
+#####################################
+
+def envio_reporte_MBCOperativo(context):
+    logger.info("\n->Comenzando generación de informe MBC Operativo<-")
+
+    try:
+        run_path(filePath_Info_Margenes+"MargenSalonAZ.py")
+        logger.info("Info Margen Salon Azcuenaga Reseteado")
+        run_path(filePath_Info_Margenes+"MargenSalonLM.py")
+        logger.info("Info Margen Salon LAMADRID Reseteado")
+        run_path(filePath_Info_Margenes+"MargenSalonM2.py")
+        logger.info("Info Margen Salon Mercado 2 Reseteado")
+        run_path(filePath_Info_Margenes+"MargenSalonP1.py")
+        logger.info("Info Margen Salon Perdriel 1 Reseteado")
+        run_path(filePath_Info_Margenes+"MargenSalonP2.py")
+        logger.info("Info Margen Salon Perdriel 2 Reseteado")
+        run_path(filePath_Info_Margenes+"MargenSalonPO.py")
+        logger.info("Info Margen Salon Puente Olive Reseteado")
+        run_path(filePath_Info_Margenes+"MargenSalonSJ.py")
+        logger.info("Info Margen Salon San Jose Reseteado")
+        run_path(filePath_Info_Margenes+"MargenSalonXS.py")
+        logger.info("Info Margen Salon Xpress Reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Margenes Salon"
+        )
+        logger.error("Error al resetear Info Margenes Salon", exc_info=1)
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    chat_id = rumaos_MBC_operativo
+   
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS MBC Operativo Semanal"
+        + fechahoy 
+        + "\n Datos relevados hasta ayer"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Margenes+"ControlVtasAZ.png", "rb")
+        , "Info Margenes Salon Azcuenaga"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Margenes+"ControlVtasLM.png", "rb")
+        , "Info Margenes Salon Lamadrid"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Margenes+"ControlVtasP1.png", "rb")
+        , "Info Margenes Salon Perdriel"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Margenes+"ControlVtasP2.png", "rb")
+        , "Info Margenes Salon Perdriel 2"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Margenes+"ControlVtasSJ.png", "rb")
+        , "Info Margenes Salon San Jose"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Margenes+"ControlVtasXS.png", "rb")
+        , "Info Margenes Salon Xpress"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Margenes+"ControlVtasPO.png", "rb")
+        , "Info Margenes Salon Puente Olive"
+    )
+#####################################
+#### GRUPO MBC Gerencial Semanal ####
+#####################################
+
+def envio_reporte_MBCGerencial(context):
+    logger.info("\n->Comenzando generación de informe MBC Gerenial<-")
+
+    try:
+        run_path(filePath_Info_MargenesGasoleos+"MargenGNCN.py")
+        logger.info("Info Margen GNC")
+        run_path(filePath_Info_MargenesGasoleos+"MargenNaftasN.py")
+        logger.info("Info Margen Naftas")
+        run_path(filePath_Info_MargenesGasoleos+"MargenGasoleosN.py")
+        logger.info("Info Margen Gasoleos por Estacion")
+        run_path(filePath_Info_MargenesGasoleos+"ConsolidadoSalon.py")
+        logger.info("Info Margen Gasoleos por Estacion")
+        run_path(filePath_Info_Presu_Gas+"Mix.py")
+        logger.info("Mix reseteado")
+
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Margenes"
+        )
+        logger.error("Error al resetear Info Margenes", exc_info=1)
+    
+
+    
+    try:
+        run_path(filePath_InfoSemanal+"InfoVtaLiqProy.py")
+        logger.info("Info vtaSemanalProy_Liq_GNC reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info vtaSemanalProy_Liq_GNC"
+        )
+        logger.error("Error al resetear vtaSemanalProy_Liq_GNC", exc_info=1)
+    
+    try:
+        run_path(filePath_Info_Presu_Gas+"Mix.py")
+        logger.info("Mix reseteado")
+
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Margenes Gasoleos"
+        )
+        logger.error("Error al resetear Info Margenes Gasoleos", exc_info=1)
+
+    try:
+        run_path(filePath_Info_Margenes+"MargenTotales.py")
+        logger.info("Info Margen Salon Totales Reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Margenes Salon"
+        )
+        logger.error("Error al resetear Info Margenes Salon", exc_info=1)
+
+    try:
+        run_path(filePath_Pen_APP_YPF+"PenetracionEmpAppYPF.py")
+        logger.info("Info Penetracion App YPF por Empleado")
+        run_path(filePath_Pen_APP_YPF+"PenetracionUENAppYPF.py")
+        logger.info("Info Penetracion App YPF por Estacion")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Penetracion App YPF"
+        )
+        logger.error("Error al resetear Info Penetracion App YPF", exc_info=1)
+
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    chat_id = rumaos_MBC_gerencial
+   
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS MBC Gerencial Semanal"
+        + fechahoy 
+        + "\n Datos relevados hasta ayer"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_MargenesGasoleos+"MBCGNC.png", "rb")
+        , "Info Margenes GNC"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_MargenesGasoleos+"MBCNaftasNS.png", "rb")
+        , "Info Margenes Nafta Super"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_MargenesGasoleos+"MBCNaftasNU.png", "rb")
+        , "Info Margenes Infinia Nafta"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_MargenesGasoleos+"MBCGasoleosGO.png", "rb")
+        , "Info Margenes Gasoleos Ultra Diesel"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_MargenesGasoleos+"MBCGasoleosEU.png", "rb")
+        , "Info Margenes Gasoleos Infinia Diesel"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_MargenesGasoleos+"MBCSalon.png", "rb")
+        , "Info Margenes Salon"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("VtaGASOLEOS_Semanal.png", ubic), "rb")
+        , "Venta Gasoleos Proyectado"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("VtaNAFTAS_Semanal.png", ubic), "rb")
+        , "Venta Naftas Proyectado"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("Info_VtaGNC_Semanal.png", ubic), "rb")
+        , "Venta de GNC Proyectado"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Margenes+"MARGENESTOTALES.png", "rb")
+        , "Info Margenes Salon Totales"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Pen_APP_YPF+"Info_Penetracion_UEN.png", "rb")
+        , "Info Penetracion App YPF por Estacion"
+    )
+    context.bot.send_document(
+            chat_id
+        , open(filePath_Pen_APP_YPF+"Penetracion_AppYPF_Emp.xlsx", "rb")
+        , "Penetracion_AppYPF_Emp.xlsx"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Presu_Gas+"Info_MIX.png", "rb")
+        , "MIX G3/G2 Ejecucion Presupuestaria"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_InfoVtaComb+"Info_VolumenVentas.png", "rb")
+        , "Venta Total por Combustible de Ayer"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("Info_VentaLubri.png", ubic), "rb")
+        , "Venta Lubricantes"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("Info_Promedio_VtasIntermensual.png", ubic), "rb")
+        , "Ventas de Salon"
+    )
+######################################################
+#### GRUPO MBC Gerencial Diario/OPERATIVO DIARIO #####
+######################################################
+
+def envio_reporte_MBCGerencial_Diario(context):
+    logger.info("\n->Comenzando generación de informe MBC Gerenial<-")
+
+    try:
+        run_path(filePath_InfoVtaComb+"TotalesPorCombustible.py")
+        logger.info("Info TotalesPorCombustible reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info TotalesPorCombustible"
+        )
+        logger.error("Error al resetear Info TotalesPorCombustible", exc_info=1)
+
+    try:
+        ventaLubri()
+        logger.info("Info Venta_Lubricante reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Venta_Lubricante"
+        )
+        logger.error("Error al resetear Venta_Lubricante", exc_info=1)
+    try:
+        run_path(filePath_InfoGrandesDeudas+"DashboardDeudas.py")
+        logger.info("Info Deuda Clientes reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Deuda Clientes"
+        )
+        logger.error("Error al resetear Deuda Clientes", exc_info=1)
+
+    
+    try:
+        run_path(filePath_Info_Pen_Salon+"PromedioVtasSalonIntermensual.py")
+        logger.info("Info Ventas Salon reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Ventas Salon"
+        )
+        logger.error("Error al resetear Ventas Salon", exc_info=1)
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    operativo = rumaos_MBC_operativo
+    gerencial = rumaos_MBC_gerencial
+    chat_id= [operativo,gerencial]
+    sebavillar= 740873634
+
+    #### ENVIO DIARIO TAMBIEN A MBC OPERATIVO   
+
+    chat_idOperativo= rumaos_MBC_operativo
+    context.bot.send_photo(
+        operativo
+        , open(filePath_InfoVtaComb+"Info_VolumenVentas.png", "rb")
+        , "Venta Total por Combustible de Ayer"
+    )
+    context.bot.send_photo(
+        operativo
+        , open(find("Info_VentaLubri.png", ubic), "rb")
+        , "Venta Lubricantes"
+    )
+    context.bot.send_photo(
+        operativo
+        , open(find("Info_Promedio_VtasIntermensual.png", ubic), "rb")
+        , "Ventas de Salon"
+    )
+
+    context.bot.send_message(
+        gerencial 
+        , text="INFORMES AUTOMÁTICOS "
+        + fechahoy
+        + "\n Datos relevados hasta ayer"
+    )
+
+    context.bot.send_photo(
+        gerencial 
+        , open(find("TablaDeuda.png", ubic), "rb")
+        , "Deuda Comercial"
+    )
+    context.bot.send_photo(
+        gerencial 
+        , open(find("TablaDeudaVolumen.png", ubic), "rb")
+        , "Deuda Comercial Volumenes"
+    )
+
+
+######################################
+#### GRUPO ABASTECIMIENTO DIARIO #####
+######################################
+
+def envio_reporte_Abastecimiento(context):
+    logger.info("\n->Comenzando generación de informe Abastecimiento<-")
+
+    try:
+        run_path(filePath_Info_Descargas+"InformeVolumenStock.py")
+        logger.info("Info Margen Gasoleos")
+        run_path(filePath_Info_Descargas+"Descargas.py")
+        logger.info("Info Margen Gasoleos")
+        run_path(filePath_KAMEL +"EstimadoRecaudacion.py")
+        logger.info("Info Margen Gasoleos")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Volumen"
+        )
+        logger.error("Error al resetear Info Volumen", exc_info=1)
+
+
+    
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    chat_id = rumaos_Abastecimiento
+    kamel = 778494913
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS Abastecimiento"
+        + fechahoy 
+        + "\n Datos relevados hasta ayer"
+    )
+    context.bot.send_document(
+            chat_id
+        , open(filePath_Info_Descargas+"volumen.xlsx", "rb")
+        , "Info Volumen.xlsx"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Descargas+"VolumEuDapsa.png", "rb")
+        , "Info Volumen EU Dapsa"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Descargas+"VolumGoDapsa.png", "rb")
+        , "Info Volumen GO Dapsa"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Descargas+"VolumNsDapsa.png", "rb")
+        , "Info Volumen NS Dapsa"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Descargas+"VolumEuYPF.png", "rb")
+        , "Info Volumen EU YPF"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Descargas+"VolumGoYPF.png", "rb")
+        , "Info Volumen GO YPF"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Descargas+"VolumNsYPF.png", "rb")
+        , "Info Volumen NS YPF"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Descargas+"VolumNuYPF.png", "rb")
+        , "Info Volumen NU YPF"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Descargas+"PresupuestoDescargasGO.png", "rb")
+        , "Ejecucion Cupo de Descargas YPF GO"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Descargas+"PresupuestoDescargasEU.png", "rb")
+        , "Ejecucion Cupo de Descargas YPF EU"
+    )
+    context.bot.send_photo(
+        kamel
+        , open(filePath_KAMEL +"Estimado_Recaudacion.png", "rb")
+        , "Estimado de Recaudacion"
+    )
+#################################
+#### GRUPO Comercial Retail #####
+#################################
+
+def envio_reporte_ComercialRetail(context):
+    logger.info("\n->Comenzando generación de informe comercial retail<-")
+ 
+    try:
+        run_path(filePath_Info_Presu_Gas+"InfoPresupuestoGas.py")
+        logger.info("Info Ejecucion Presupuestaria reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados
+            , text="Error al resetear Info Ejecucion Presupuestaria"
+        )
+        logger.error("Error al resetear Info Ejecucion Presupuestaria", exc_info=1)
+
+
+    try:
+        penetracionRMSemanal()
+        penetracionRedMas()
+        redControlSemanal()
+        logger.info("Info Penetracion_RedMas reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Penetracion_RedMas"
+        )
+        logger.error("Error al resetear Penetracion_RedMas", exc_info=1)
+
+    try:
+        run_path(filePath_Info_Pen_Salon +"VtasSalonPresupuesto.py")
+        logger.info("Info Ejecucion Presupuestaria ventas salon")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados
+            , text="Error al resetear Info Ejecucion Presupuestaria ventas salon"
+        )
+        logger.error("Error al resetear Info Ejecucion Presupuestaria ventas salon", exc_info=1)
+
+
+    try:
+        run_path(filePath_Pen_APP_YPF+"PenetracionUENAppYPF.py")
+        logger.info("Info Penetracion App YPF por Estacion")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Penetracion App YPF"
+        )
+        logger.error("Error al resetear Info Penetracion App YPF", exc_info=1)
+
+
+    try:
+        run_path(filePath_Info_Pen_Lubri+"PenetracionLubri.py")
+        logger.info("Info Penetracion Lubricantes Reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Penetracion Lubricantes"
+        )
+        logger.error("Error al resetear Info Penetracion Lubricantes", exc_info=1)
+
+    try:
+        run_path(filePath_Info_Pen_Salon+"PromedioVtasSalon.py")
+        logger.info("Info Ticket Promedio Ventas Salon")
+        run_path(filePath_Info_Pen_Salon+"PromedioVtasSalonIntermensual.py")
+        logger.info("Info Ventas Salon")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Ticket Promedio Ventas Salon"
+        )
+        logger.error("Error al resetear Info Ticket Promedio Ventas Salon", exc_info=1)
+
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    chat_id = rumaos_Comer_retail
+   
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS Comercial Retail "
+        + fechahoy 
+        + "\n Datos relevados hasta ayer"
+    )
+  
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Presu_Gas+"Info_Presupuesto_GNC.png", "rb")
+        , "Info Ejecucion Presupuestaria GNC"
+    )
+
+    '''context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Pen_Lubri+"Info_PenetracionLubri_Diario.png", "rb")
+        , "Info Ejecucion Lubricantes Presupuestado Diario"
+    )'''
+
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Pen_Salon +"PresupuestadoSalon.png", "rb")
+        , "Info Desvio Presupuestario Ventas Salon"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Pen_Lubri+"Info_Penetracion_Lubri.png", "rb")
+        , "Info Penetracion Lubricantes"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Pen_Salon+"Info_Promedio_Vtas.png", "rb")
+        , "Info Ticket Salon Promedio"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(find("penetracionRedMas_GNC.png", ubic), "rb")
+        , "Penetración RedMas GNC"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("penetracionRedMas_liq.png", ubic), "rb")
+        , "Penetración RedMas liquidos"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Pen_APP_YPF+"Info_Penetracion_UEN.png", "rb")
+        , "Info Penetracion App YPF por Estacion"
+    )
+#########################################
+#### GRUPO Comercial Retail Semanal #####
+#########################################
+
+def envio_reporte_ComercialRetail_Semanal(context):
+    logger.info("\n->Comenzando generación de informe comercial retail<-")
+    try:
+        redControlSemanal()
+        penetracionRMSemanal()
+        logger.info("Info redControlSemanal reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info redControlSemanal"
+        )
+        logger.error("Error al resetear redControlSemanal", exc_info=1)
+    try:
+        run_path(filePath_YPF+"Azcuenaga.py")
+        logger.info("Info +YPF Reseteado")
+        run_path(filePath_YPF+"Lamadrid.py")
+        logger.info("Info +YPF Reseteado")
+        run_path(filePath_YPF+"Perdriel1.py")
+        logger.info("Info +YPF Reseteado")
+        run_path(filePath_YPF+"Perdriel2.py")
+        logger.info("Info +YPF Reseteado")
+        run_path(filePath_YPF+"Puente_Olive.py")
+        logger.info("Info +YPF Reseteado")
+        run_path(filePath_YPF+"San_Jose.py")
+        logger.info("Info +YPF Reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info +YPF"
+        )
+        logger.error("Error al resetear Info +YPF", exc_info=1)
+
+    try:
+        run_path(filePath_InfoSemanal+"InfoPenetracionRMSemanal.py")
+        logger.info("Penetracion RM semanal reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Penetracion RM semanal"
+        )
+        logger.error("Error al resetear Penetracion RM semanal", exc_info=1)
+
+    try:
+        run_path(filePath_RedMas+"RedMasClientesActivos.py")
+        logger.info("CRM Gasoleos y GNC")
+        run_path(filePath_InfoSemanal+"InfoPenetracionRMSemanal.py")
+        logger.info("CRM Gasoleos y GNC")
+        run_path(filePath_RedMas+"graficoCRM.py")
+        logger.info("Grafico CRM GNC")
+        run_path(filePath_RedMas+"graficoRemis.py")
+        logger.info("Grafico CRM GNC Remis")
+        run_path(filePath_RedMas+"graficoTaxis.py")
+        logger.info("Grafico CRM GNC Taxis")
+        run_path(filePath_RedMas+"graficoFlete.py")
+        logger.info("Grafico CRM GNC Fletes")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear CRM gasoleos y GNC"
+        )
+        logger.error("Error al resetear CRM gasoleos y GNC", exc_info=1)
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    weekStart = (dt.date.today()-dt.timedelta(days=7)).strftime("%d/%m/%y")
+    weekEnd = (dt.date.today()-dt.timedelta(days=1)).strftime("%d/%m/%y")
+
+
+    chat_id = rumaos_Comer_retail
+
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS SEMANALES\n" 
+            + "PERÍODO "
+            + weekStart
+            + " AL "
+            + weekEnd
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("Info_RedControlLiq_Semanal.png", ubic), "rb")
+        , "Red Control Líquido"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(find("Info_Penetración_Semanal.png", ubic), "rb")
+        , "Penetración RedMás Semanal"
+    )
+
+#############################################
+#### GRUPO COMBUSTIBLES GRANDES CLIENTES ####
+#############################################
+
+def envio_reporte_Grandes_Clientes(context):
+    logger.info("\n->Comenzando generación de informes Combustibles Grandes Clientes<-")
+    try:
+        run_path(filePath_InfoGrandesDeudas+"DeudaClientes.py")
+        logger.info("Info Deuda Clientes reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Deuda Clientes"
+        )
+        logger.error("Error al resetear Deuda Clientes", exc_info=1)
+
+ 
+    try:
+        run_path(filePath_InfoVtaComb+"TotalesPorCombustible.py")
+        logger.info("Info TotalesPorCombustible reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info TotalesPorCombustible"
+        )
+        logger.error("Error al resetear Info TotalesPorCombustible", exc_info=1)
+  
+    try:
+        ventaLubri()
+        logger.info("Info Venta_Lubricante reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Venta_Lubricante"
+        )
+        logger.error("Error al resetear Venta_Lubricante", exc_info=1)
+    
+    try:
+        run_path(filePath_Info_Pen_Salon+"PromedioVtasSalonIntermensual.py")
+        logger.info("Info Ventas Salon reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Ventas Salon"
+        )
+        logger.error("Error al resetear Ventas Salon", exc_info=1)
+
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+
+    chat_id = rumaos_Grandes_clientes
+
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS "
+        + fechahoy
+        + "\n Datos relevados hasta ayer"
+    )
+    context.bot.send_photo(
+        chat_id 
+        , open(find("Deuda_Comercial.png", ubic), "rb")
+        , "Deuda Comercial"
+    )
+    context.bot.send_photo(
+        chat_id 
+        , open(find("Deudores_Morosos.png", ubic), "rb")
+        , "Clientes Deudores Morosos"
+    )
+    context.bot.send_photo(
+        chat_id 
+        , open(find("Deudores_MorososG.png", ubic), "rb")
+        , "Clientes Deudores Morosos Graves"
+    )
+    context.bot.send_photo(
+        chat_id 
+        , open(find("Deudores_GestionJ.png", ubic), "rb")
+        , "Clientes Deudores Gestion Judicial"
+    )
+    context.bot.send_document(
+        chat_id
+        , open(find("Deudores_Comerciales.pdf", ubic), "rb")
+        , "Deudores_Comerciales.pdf"
+    )
+
+#####################################################
+#### GRUPO COMBUSTIBLES GRANDES CLIENTES SEMANAL ####
+#####################################################
+
+def envio_reporte_Grandes_Clientes_semanal(context):
+    logger.info("\n->Comenzando generación de informes Combustibles Grandes Clientes<-")
+    try:
+        vtaProyGranClient()
+        logger.info("Info vtaProyGranClient reseteado")
+        run_path(filePath_InfoVtaComb+"Mix_Ventas_por_Vendedor.py")
+        logger.info("Info Mix Ventas por Vendedor reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info vtaProyGranClient"
+        )
+        logger.error("Error al resetear vtaProyGranClient", exc_info=1)
+
+
+
+    weekStart = (dt.date.today()-dt.timedelta(days=7)).strftime("%d/%m/%y")
+    weekEnd = (dt.date.today()-dt.timedelta(days=1)).strftime("%d/%m/%y")
+
+    weekStart = (dt.date.today()-dt.timedelta(days=7)).strftime("%d/%m/%y")
+    weekEnd = (dt.date.today()-dt.timedelta(days=1)).strftime("%d/%m/%y")
+
+
+    chat_id = rumaos_Grandes_clientes
+
+    context.bot.send_message(
+        chat_id=chat_id
+        , text="INFORMES AUTOMÁTICOS SEMANALES\n" 
+            + "PERÍODO "
+            + weekStart
+            + " AL "
+            + weekEnd
+    )
+    context.bot.send_document(
+            chat_id
+            , open(find("Grandes_Clientes_Baja_Consumo.pdf", ubic), "rb")
+            , "Grandes_Clientes_Baja_Consumo.pdf"
+        )
+    context.bot.send_photo(
+        rumaos_Informes_Globales
+        , open(find("Mix_Ventas_Vendedor_Gasoleos.png", ubic), "rb")
+        , "Volumen Vendido por Vendedor Gasoleos"
+    )
+    context.bot.send_photo(
+        rumaos_Informes_Globales
+        , open(find("Mix_Ventas_Vendedor_Naftas.png", ubic), "rb")
+        , "Volumen Vendido por Vendedor Naftas"
+    )
 
 ##################################################
 # DAILY REPORT Comercial
@@ -833,15 +2922,63 @@ def envio_reporte_comercial(context):
         , "ClientesDeudores.xlsx"
     )
 
-    context.bot.send_photo(
-        chat_id
-        , open(filePath_Info_Despachos_Camioneros+
-            "Info_Despachos_Camioneros.png", "rb")
-        , "Despachos Camioneros"
-    )
-    
     
 
+##################################################
+# CONTROL CALIBRACION GNC Y BALANCE DE TANQUES
+##################################################
+
+
+def envio_reporte_Control_Calibracion(context):
+
+    logger.info("\n->Comenzando generación de informes Combustibles Grandes Clientes<-")
+    try:
+        run_path(filePath_Info_Control_Info+"Calibracion_tanques.py")
+        logger.info("Info calibracion tanques reseteado")
+        run_path(filePath_Info_Control_Info+"Calibracion_GNC_Alternativa.py")
+        logger.info("Info calibracion GNC reseteado")
+        run_path(filePath_Info_Control_Info+"Fraude_RM.py")
+        logger.info("Info Posibles Fraudes RM")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Penetracion_RedMas"
+        )
+        logger.error("Error al resetear Calibracion Tanques/GNC", exc_info=1)
+
+    calibracion = rumaosCalibracion_Control   
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    context.bot.send_message(
+        calibracion 
+        , text="INFORMES AUTOMÁTICOS " 
+        + fechahoy 
+        + "\n Datos relevados hasta ayer"
+    )
+
+    context.bot.send_photo(
+        calibracion 
+        , open(filePath_Info_Control_Info+"Calibracion_tanques_semanal.png", "rb")
+        , "Calibracion Semanal Tanques"
+    )
+    context.bot.send_photo(
+        calibracion 
+        , open(filePath_Info_Control_Info+"Calibracion_GNC_Acumulado.png", "rb")
+        , "Calibracion GNC Acumulado"
+    )
+    context.bot.send_photo(
+        calibracion 
+        , open(filePath_Info_Control_Info+"Calibracion_GNC_Ayer.png", "rb")
+        , "Calibracion GNC Ayer"
+    )
+    context.bot.send_photo(
+        rumaos_auditoria_RM 
+        , open(filePath_Info_Control_Info+"Fraude_RM.png", "rb")
+        , "Posibles Fraudes RM"
+    )
+    context.bot.send_document(
+        rumaos_auditoria_RM 
+        , open(filePath_Info_Control_Info+"Fraude_RM.xlsx", "rb")
+        , "Posibles Fraudes RM.xlsx"
+    )
 
 ##################################################
 # DAILY REPORT Lapuchesky
@@ -980,14 +3117,6 @@ def envio_reporte_CFO(context):
         )
         logger.error("Error al resetear BancosSaldos", exc_info=1)
 
-    try:
-        condicionDeudores()
-        logger.info("Info condicionDeudores reseteado")
-    except Exception as e:
-        context.bot.send_message(id_Autorizados[0]
-            , text="Error al resetear Info condicionDeudores"
-        )
-        logger.error("Error al resetear condicionDeudores", exc_info=1)
 
     try:
         usos_SGFin()
@@ -1202,6 +3331,394 @@ def envio_reporte_periferia_semanal(context):
 
 
 
+###########################################
+####### RREPORTES CONTROL DE INFORMACION
+############################################
+
+
+
+def envio_reporte_ControlInfo(context):
+    logger.info("\n->Comenzando generación de Control de Informacion<-")
+
+    try:
+        run_path(filePath_Info_Control_Info+"ControlDatosVentas.py")
+        logger.info("Info Control Ventas resetado")
+        run_path(filePath_Info_Control_Info+"ControlDespaPro.py")
+        logger.info("Info Control Despachos reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Control de Informacion"
+        )
+        logger.error("Error al resetear Control de Informacion", exc_info=1)
+
+
+    try:
+        run_path(filePath_Info_Control_Info+"Carga_Calibracion_GNC.py")
+        logger.info("Info Calibracion Actualizado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Calibracion Actualizado"
+        )
+        logger.error("Error al resetear Info Calibracion Actualizado", exc_info=1)
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    chat_id = rumaos_Control_info
+    chat_id2 = rumaosMasYPF
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES Control De Informacion"
+        + fechahoy 
+        + "\n Datos relevados hasta ayer"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Control_Info+"ControlVtas.png", "rb")
+        , "Control Informacion Ventas"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Control_Info+"ControlDespa.png", "rb")
+        , "Control Informacion Despachos"
+    )
+
+
+#############################
+##  Envio Reportes Ejecucion Presupuestaria         #############################
+##############################
+
+
+
+def envio_reporte_Presupuesto(context):
+    logger.info("\n->Comenzando generación de informe comercial<-")
+
+    try:
+        run_path(filePath_Info_Presu_Gas+"InfoPresupuestoGas.py")
+        logger.info("Info Ejecucion Presupuestaria reseteado")
+        run_path(filePath_Info_Presu_Gas+"InfoPresupuestoGasTURNOS.py")
+        logger.info("Info Desvio Turnos Reseteado")
+        run_path(filePath_Info_Presu_Gas+"Mix.py")
+        logger.info("Mix reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados
+            , text="Error al resetear Info Ejecucion Presupuestaria"
+        )
+        logger.error("Error al resetear Info Ejecucion Presupuestaria", exc_info=1)
+    try:
+        run_path(filePath_Info_Pen_Salon +"VtasSalonPresupuesto.py")
+        logger.info("Info Ejecucion Presupuestaria ventas salon")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados
+            , text="Error al resetear Info Ejecucion Presupuestaria ventas salon"
+        )
+        logger.error("Error al resetear Info Ejecucion Presupuestaria ventas salon", exc_info=1)
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    chat_id = rumaos_Info_EPresu
+   
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS Ejecucion Presupuestos "
+        + fechahoy 
+        + "\n Datos relevados hasta ayer"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Presu_Gas+"Info_Presupuesto_GNC.png", "rb")
+        , "Info Ejecucion Presupuestaria GNC"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Presu_Gas+"Info_Desvio_Turnos.png", "rb")
+        , "Info Desvio Presupuestario Penetracion GNC Turnos"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Pen_Pan+"Info_PenetracionPan.png", "rb")
+        , "Info Ejecucion Panaderia Presupuestado Diario"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Pen_Lubri+"Info_PenetracionLubri_Diario.png", "rb")
+        , "Info Ejecucion Lubricantes Presupuestado Diario"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Presu_Gas+"Info_MIX.png", "rb")
+        , "MIX G3/G2 Ejecucion Presupuestaria"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Pen_Salon +"PresupuestadoSalon.png", "rb")
+        , "Info Desvio Presupuestario Ventas Salon"
+    )
+
+#############################################
+############## REPORTE PERIFERIA ############
+#############################################
+
+def envio_reporte_Periferia(context):
+    logger.info("\n->Comenzando generación de informe Periferia<-")
+
+    try:
+        run_path(filePath_Info_Pen_Pan+"Info_Penetracion_Pan.py")
+        logger.info("Info Penetracion Panaderia Reseteado")
+        run_path(filePath_Info_Pen_Pan+"MermasPanaderia.py")
+        logger.info("Mermas Panaderia Reseteado")
+
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Penetracion Panaderia"
+        )
+        logger.error("Error al resetear Info Penetracion Panaderia", exc_info=1)
+
+    try:
+        run_path(filePath_Info_Pen_Lubri+"PenetracionLubri.py")
+        logger.info("Info Penetracion Lubricantes Reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Penetracion Lubricantes"
+        )
+        logger.error("Error al resetear Info Penetracion Lubricantes", exc_info=1)
+
+    try:
+        run_path(filePath_Info_Pen_Salon+"PromedioVtasSalon.py")
+        logger.info("Info Ticket Promedio Ventas Salon")
+        run_path(filePath_Info_Pen_Salon+"PromedioVtasSalonIntermensual.py")
+        logger.info("Info Ventas Salon")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Ticket Promedio Ventas Salon"
+        )
+        logger.error("Error al resetear Info Ticket Promedio Ventas Salon", exc_info=1)
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    chat_id = rumaos_Info_Periferia
+   
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS Periferia "
+        + fechahoy 
+        + "\n Datos relevados hasta ayer"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Pen_Pan+"Info_Penetracion_Pan.png", "rb")
+        , "Info Penetracion Panaderia"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Pen_Lubri+"Info_Penetracion_Lubri.png", "rb")
+        , "Info Penetracion Lubricantes"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Pen_Salon+"Info_Promedio_Vtas.png", "rb")
+        , "Info Ticket Salon Promedio"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Pen_Pan+"MermasPanaderia.png", "rb")
+        , "Mermas Panaderia"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Pen_Salon+"Info_Promedio_VtasIntermensual.png", "rb")
+        , "Info Ventas de Salon"
+    )
+
+
+####################################################
+######### REPORTE  MARGENES  SALON #################
+####################################################
+
+def envio_reporte_MargenesSalon(context):
+    logger.info("\n->Comenzando generación de informe Margenes Salon<-")
+
+    try:
+        run_path(filePath_Info_Margenes+"MargenSalonAZ.py")
+        logger.info("Info Margen Salon Azcuenaga Reseteado")
+        run_path(filePath_Info_Margenes+"MargenSalonLM.py")
+        logger.info("Info Margen Salon LAMADRID Reseteado")
+        run_path(filePath_Info_Margenes+"MargenSalonM2.py")
+        logger.info("Info Margen Salon Mercado 2 Reseteado")
+        run_path(filePath_Info_Margenes+"MargenSalonP1.py")
+        logger.info("Info Margen Salon Perdriel 1 Reseteado")
+        run_path(filePath_Info_Margenes+"MargenSalonP2.py")
+        logger.info("Info Margen Salon Perdriel 2 Reseteado")
+        run_path(filePath_Info_Margenes+"MargenSalonPO.py")
+        logger.info("Info Margen Salon Puente Olive Reseteado")
+        run_path(filePath_Info_Margenes+"MargenSalonSJ.py")
+        logger.info("Info Margen Salon San Jose Reseteado")
+        run_path(filePath_Info_Margenes+"MargenSalonXS.py")
+        logger.info("Info Margen Salon Xpress Reseteado")
+        run_path(filePath_Info_Margenes+"MargenTotales.py")
+        logger.info("Info Margen Salon Totales Reseteado")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Margenes Salon"
+        )
+        logger.error("Error al resetear Info Margenes Salon", exc_info=1)
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    chat_id = rumaos_Margenes
+   
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS Margenes Salon"
+        + fechahoy 
+        + "\n Datos relevados hasta ayer"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Margenes+"ControlVtasAZ.png", "rb")
+        , "Info Margenes Salon Azcuenaga"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Margenes+"ControlVtasLM.png", "rb")
+        , "Info Margenes Salon Lamadrid"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Margenes+"ControlVtasP1.png", "rb")
+        , "Info Margenes Salon Perdriel"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Margenes+"ControlVtasP2.png", "rb")
+        , "Info Margenes Salon Perdriel 2"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Margenes+"ControlVtasSJ.png", "rb")
+        , "Info Margenes Salon San Jose"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Margenes+"ControlVtasXS.png", "rb")
+        , "Info Margenes Salon Xpress"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Margenes+"ControlVtasPO.png", "rb")
+        , "Info Margenes Salon Puente Olive"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Margenes+"MARGENESTOTALES.png", "rb")
+        , "Info Margenes Salon Totales"
+    )
+
+####################################################
+######### REPORTE  MARGENES  PLAYA #################
+####################################################
+
+
+def envio_reporte_MargenesPlaya(context):
+    logger.info("\n->Comenzando generación de informe Margenes Playa<-")
+
+    try:
+        run_path(filePath_Info_MargenesGasoleos+"MargenGasoleos.py")
+        logger.info("Info Margen Gasoleos")
+        run_path(filePath_Info_MargenesGasoleos+"MargenGNC.py")
+        logger.info("Info Margen GNC")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Margenes Playa"
+        )
+        logger.error("Error al resetear Info Margenes Playa", exc_info=1)
+    
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    chat_id = rumaos_Margenes
+   
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS Margenes Playa "
+        + fechahoy 
+        + "\n Datos relevados hasta ayer"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_MargenesGasoleos+"Margenes_Gasoleos.png", "rb")
+        , "Info Margenes Gasoleos"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_MargenesGasoleos+"Margenes_GNC.png", "rb")
+        , "Info Margenes GNC"
+    )
+
+
+####################################################
+######### REPORTE  VOLUMEN #################
+####################################################
+
+
+def envio_reporte_Descargas(context):
+    logger.info("\n->Comenzando generación de informe Volumenes<-")
+
+    try:
+        run_path(filePath_Info_Descargas+"InformeVolumenStock.py")
+        logger.info("Info Margen Gasoleos")
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+            , text="Error al resetear Info Volumen"
+        )
+        logger.error("Error al resetear Info Volumen", exc_info=1)
+    
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    chat_id = rumaos_Descargas
+   
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES AUTOMÁTICOS Margenes Gasoleos"
+        + fechahoy 
+        + "\n Datos relevados hasta ayer"
+    )
+    context.bot.send_document(
+            chat_id
+        , open(filePath_Info_Descargas+"volumen.xlsx", "rb")
+        , "Info Volumen.xlsx"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Descargas+"VolumEuDapsa.png", "rb")
+        , "Info Volumen EU Dapsa"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Descargas+"VolumGoDapsa.png", "rb")
+        , "Info Volumen GO Dapsa"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Descargas+"VolumNsDapsa.png", "rb")
+        , "Info Volumen NS Dapsa"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Descargas+"VolumEuYPF.png", "rb")
+        , "Info Volumen EU YPF"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Descargas+"VolumGoYPF.png", "rb")
+        , "Info Volumen GO YPF"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Descargas+"VolumNsYPF.png", "rb")
+        , "Info Volumen NS YPF"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Descargas+"VolumNuYPF.png", "rb")
+        , "Info Volumen NU YPF"
+    )
 ##################################################
 # WEEKLY REPORT channel Rumaos_Info
 ##################################################
@@ -1229,7 +3746,7 @@ def envio_reporte_semanal(context):
         logger.error("Error al resetear redControlSemanal", exc_info=1)
 
     try:
-        vtaSemanalProy_Liq_GNC()
+        run_path(filePath_InfoSemanal+"InfoVtaLiqProy.py")
         logger.info("Info vtaSemanalProy_Liq_GNC reseteado")
     except Exception as e:
         context.bot.send_message(id_Autorizados[0]
@@ -1277,14 +3794,13 @@ def envio_reporte_semanal(context):
 
     context.bot.send_photo(
             chat_id
-            , open(find("Info_VtaLiquido_Semanal.png", ubic), "rb")
-            , "Venta de Líquidos Proyectado"
+            , open(find("VtaGASOLEOS_Semanal.png", ubic), "rb")
+            , "Venta Gasóleos Proyectado"
         )
-
     context.bot.send_photo(
             chat_id
-            , open(find("Info_GrupoLiq_Semanal.png", ubic), "rb")
-            , "Venta Gasóleos/Naftas Proyectado"
+            , open(find("VtaNAFTAS_Semanal.png", ubic), "rb")
+            , "Venta Naftas Proyectado"
         )
 
     context.bot.send_photo(
@@ -1294,12 +3810,73 @@ def envio_reporte_semanal(context):
         )
 
     context.bot.send_photo(
-            chat_id
-            , open(find("Info_Penetración_Semanal.png", ubic), "rb")
-            , "Penetración RedMás Semanal"
-        )
+	chat_id
+        , open(find("Info_Penetración_Semanal.png", ubic), "rb")
+        , "Penetración RedMás Semanal"
+    )
     
 
+################
+# CRM
+#################
+
+def flotas_crm(context):
+    logger.info("\n->Comenzando generación de informe flotas_crm<-")
+    try:
+        run_path(filePath_Info_Despachos_Camioneros + "Volumen_Prom_Camiones.py")
+        logger.info("Volumen promedio Camiones")
+        run_path(filePath_Info_Despachos_Camioneros + "Mix_Camiones_Gas.py")
+        logger.info("Mix Camiones Gasoleos")
+        run_path(filePath_Info_Despachos_Camioneros + "Clientes_Camiones.py")
+        logger.info("Clientes Camiones")
+        run_path(filePath_Info_Despachos_Camioneros + "objetivo_Red_Mas_Camiones.py")
+        logger.info("Penetracion Red Mas Camiones")
+
+    except Exception as e:
+        context.bot.send_message(id_Autorizados[0]
+                                 , text="Error al resetear Objetivos Camiones"
+                                 )
+        logger.error("Error al resetear Objetivos Camiones", exc_info=1)
+
+    logger.info("\n->Comenzando generación de informe semanal<-")
+
+    fechahoy = dt.datetime.now().strftime("%d/%m/%y")
+    weekStart = (dt.date.today() - dt.timedelta(days=7)).strftime("%d/%m/%y")
+    weekEnd = (dt.date.today() - dt.timedelta(days=1)).strftime("%d/%m/%y")
+
+    chat_id=-825183473
+
+    context.bot.send_message(
+        chat_id
+        , text="INFORMES FLOTAS/CRM "
+               + fechahoy
+               + "\n Datos relevados hasta ayer"
+    )
+
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Despachos_Camioneros +
+               "Mix_Gasoleos_Camiones.png", "rb")
+        , "Mix Gasoleos Camiones"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Despachos_Camioneros +
+               "Cant_Clientes_Camiones.png", "rb")
+        , "Cantidad de Clientes Camiones"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Despachos_Camioneros +
+               "Vol_Prom_Camiones.png", "rb")
+        , "Volumen Promedio Camiones"
+    )
+    context.bot.send_photo(
+        chat_id
+        , open(filePath_Info_Despachos_Camioneros +
+               "objetivo_Red_Mas_Camiones.png", "rb")
+        , "Penetracion RedMas Camiones"
+    )
 
 
 ##################################################
@@ -1357,20 +3934,67 @@ def main() -> None:
     # updater.job_queue.run_repeating(callback_minute, interval=60, first=10)
     # updater.job_queue.run_once(envio_reporte_cheques, 15)
 
-    # Daily
-    updater.job_queue.run_daily(envio_reporte_ivo
-        , dt.time(11,0,0,tzinfo=argTime) 
+    # Daily IVO
+
+    updater.job_queue.run_daily(reportes_ivo_Inversiones_D
+        , dt.time(9,20,0,tzinfo=argTime) 
+        , days=(0,1, 2, 3, 4,5)
         , name="info_diario"
     )
-    updater.job_queue.run_daily(envio_reporte_comercial
-        , dt.time(11,5,0,tzinfo=argTime) 
-        , name="info_comercial"
+    updater.job_queue.run_daily(reportes_ivo_Inversiones_D_B
+        , dt.time(17,7,0,tzinfo=argTime) 
+        , days=(0,1, 2, 3, 4)
+        , name="info_diario"
     )
-    updater.job_queue.run_daily(envio_reporte_lapuchesky
-        , dt.time(11,15,0,tzinfo=argTime) 
-        , name="info_lapuchesky"
+    updater.job_queue.run_daily(reportes_ivo_diario_Financieros
+        , dt.time(17,50,0,tzinfo=argTime) 
+        , days=(0, 1, 2, 3, 4)
+        , name="info_diario"
+    )
+    updater.job_queue.run_daily(envio_Check_Finanzas
+        , dt.time(18,0,0,tzinfo=argTime) 
+        , days=(0, 1, 2, 3, 4)
+        , name="check_Info"
+    )
+    updater.job_queue.run_daily(reportes_ivo_diario_InfoGlobal_ET_F
+        , dt.time(18,10,0,tzinfo=argTime) 
+        , name="info_diario"
+    )
+    updater.job_queue.run_daily(reportes_ivo_diario_InfoGlobal
+        , dt.time(11,10,0,tzinfo=argTime) 
+        , name="info_diario"
+    )
+    # Daily Empleados
+    updater.job_queue.run_daily(envio_reporte_MBCGerencial_Diario
+        , dt.time(13,50,0,tzinfo=argTime)
+    )
+    updater.job_queue.run_daily(envio_reporte_Abastecimiento
+        , dt.time(6,45,0,tzinfo=argTime)
+    )
+    updater.job_queue.run_daily(envio_reporte_Control_Calibracion
+        , dt.time(9,40,0,tzinfo=argTime) 
+        , name="info_diario"
     )
 
+    '''
+    updater.job_queue.run_daily(actualizacion_Info_Sheet
+        , dt.time(8,30,0,tzinfo=argTime)
+    )
+    '''
+    updater.job_queue.run_daily(envio_reporte_ControlInfo
+        , dt.time(10,20,0,tzinfo=argTime)
+    )
+    updater.job_queue.run_daily(envio_reporte_ComercialRetail
+        , dt.time(10,35,0,tzinfo=argTime)
+    )
+    updater.job_queue.run_daily(envio_reporte_Grandes_Clientes
+        , dt.time(10,50,0,tzinfo=argTime)
+    )
+    '''
+    updater.job_queue.run_daily(actualizacion_Info_Sheet
+        , dt.time(11,0,0,tzinfo=argTime)
+    )
+    '''
     # Monday to Friday
     updater.job_queue.run_daily(envio_reporte_cheques
         , dt.time(8,0,0,tzinfo=argTime)
@@ -1378,27 +4002,85 @@ def main() -> None:
         , name="info_cheques"
     )
     updater.job_queue.run_daily(envio_reporte_conciliaciones
-        , dt.time(17,15,0,tzinfo=argTime)
+        , dt.time(16,30,0,tzinfo=argTime)
         , days=(0, 1, 2, 3, 4)
         , name="info_conciliaciones"
     )
-    updater.job_queue.run_daily(envio_reporte_CFO
-        , dt.time(17,30,0,tzinfo=argTime)
-        , days=(0, 1, 2, 3, 4)
-        , name="info_CFO"
-    )
 
-    # Weekly
-    updater.job_queue.run_daily(envio_reporte_semanal
-        , dt.time(12,0,0,tzinfo=argTime)
+    # Weekly IVO
+    updater.job_queue.run_daily(reportes_ivo_semanal_InfoGlobal
+        , dt.time(13,59,0,tzinfo=argTime)
+        , days=[4]
+        , name="info_Global"
+    )
+    updater.job_queue.run_daily(reportes_ivo_Inversiones_S
+        , dt.time(10,16,0,tzinfo=argTime) 
+        , days= [3]
+        , name="info_diario"
+    )
+    updater.job_queue.run_daily(reportes_ivo_semanal_Metricas
+        , dt.time(14,15,tzinfo=argTime)
+        , days=[4]
+        , name="info_Metricas"
+    )
+    updater.job_queue.run_daily(reportes_ivo_diario_Metricas
+        , dt.time(14,9,0,tzinfo=argTime)
+        , days=[4]
+        , name="info_comercial"
+    )
+    updater.job_queue.run_daily(reportes_ivo_Presupuestos
+        , dt.time(14,0,0,tzinfo=argTime)
+        , days=[4] 
+        , name="info_Presupuestos"
+    )
+    updater.job_queue.run_daily(reportes_ivo_PresupuestosCombustibles
+        , dt.time(14,50,0,tzinfo=argTime)
+        , days=[3] 
+        , name="info_Presupuestos"
+    )
+    updater.job_queue.run_daily(envio_reporte_MBC_IVO
+        , dt.time(12,19,0,tzinfo=argTime)
+        , days=[4]
+        , name="info_MBC"
+    )
+    ''' updater.job_queue.run_daily(envio_DB_Eduardo
+        , dt.time(14,50,0,tzinfo=argTime)
+        , days=[0]
+        , name="Dashboard_Eduardo"
+    ) '''
+    # Weekly Empleados
+    updater.job_queue.run_daily(envio_reporte_Grandes_Clientes_semanal
+        , dt.time(12,45,0,tzinfo=argTime)
         , days=[4]
         , name="info_semanal"
     )
-    updater.job_queue.run_daily(envio_reporte_periferia_semanal
-        , dt.time(13,0,0,tzinfo=argTime)
+
+    updater.job_queue.run_daily(envio_reporte_ComercialRetail_Semanal
+        , dt.time(12,56,0,tzinfo=argTime)
         , days=[4]
-        , name="info_periferia_semanal"
+        , name="info_semanal"
     )
+    updater.job_queue.run_daily(envio_reporte_MBCGerencial
+        , dt.time(13,9,0,tzinfo=argTime)
+        , days=[4]
+        , name="info_semanal"
+    )
+    updater.job_queue.run_daily(envio_reporte_MBCOperativo
+        , dt.time(12,12,0,tzinfo=argTime)
+        , days=[4]
+        , name = "info_semanal"
+    )
+    updater.job_queue.run_daily(flotas_crm
+        , dt.time(15,19,0,tzinfo=argTime)
+        , days=[4]
+        , name = "info_semanal"
+    )
+
+    #updater.job_queue.run_daily(envio_reporte_periferia_semanal
+    #    , dt.time(13,0,0,tzinfo=argTime)
+    #    , days=[4]
+    #    , name="info_periferia_semanal"
+    #)
 
     # Keep Alive Task
     updater.job_queue.run_repeating(keepAlive, interval=210, first=10)

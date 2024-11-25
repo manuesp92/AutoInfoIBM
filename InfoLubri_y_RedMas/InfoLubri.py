@@ -1,4 +1,4 @@
-###################################
+﻿###################################
 #
 #     INFORME Lubricantes Ayer
 #             
@@ -40,9 +40,9 @@ def datosLubri(conexMSSQL):
                 ,CAST(sum(-[CANTIDAD]) AS smallint) as 'UNIDADES'
             FROM [Rumaos].[dbo].[VMovDet]
             WHERE VMovDet.TIPOMOVIM = '3'
-                AND VMovDet.CODPRODUCTO BETWEEN 100 AND 5000
+                AND VMovDet.CODPRODUCTO BETWEEN '100' AND '5000'
                 --Filtramos azul32 y agua destilada
-                AND VMovDet.CODPRODUCTO NOT IN ('1027','1146', '1175', '2000')
+                AND VMovDet.CODPRODUCTO NOT IN ('1027','1146', '1175', '2000','1034','1190','3016','1135','1191')
                 AND VMovDet.FECHASQL = DATEADD(DAY,-1,CAST(GETDATE() AS date))
             GROUP BY VMovDet.CODPRODUCTO
         '''
@@ -115,6 +115,56 @@ def datosLubri(conexMSSQL):
 
 def _estiladorVtaTitulo(df, list_Col_Num, list_Col_Perc, titulo):
     """
+    This function will return a styled dataframe that must be assign to a variable.
+    ARGS:
+        df: Dataframe that will be styled.
+        list_Col_Num: List of numeric columns that will be formatted with
+        zero decimals and thousand separator.
+        list_Col_Perc: List of numeric columns that will be formatted 
+        as percentage.
+        titulo: String for the table caption.
+    """
+    resultado = df.style \
+        .format("{0:,.0f}", subset=list_Col_Num) \
+        .format("{:,.2%}", subset=list_Col_Perc) \
+        .hide() \
+        .set_caption(titulo
+            +"\n"
+            +((pd.to_datetime("today")-pd.to_timedelta(1,"days"))
+            .strftime("%d/%m/%y"))
+        ) \
+        .set_properties(subset=list_Col_Num + list_Col_Perc
+            , **{"text-align": "center", "width": "50px"}) \
+        .set_properties(border= "2px solid black") \
+        .set_table_styles([
+            {"selector": "caption", 
+                "props": [
+                    ("font-size", "20px")
+                    ,("text-align", "center")
+                ]
+            }
+            , {"selector": "th", 
+                "props": [
+                    ("text-align", "center")
+                    ,("background-color","black")
+                    ,("color","white")
+                ]
+            }
+        ]) \
+        .apply(lambda x: ["background: black" if x.name == "colTOTAL" 
+            else "" for i in x]
+            , axis=1) \
+        .apply(lambda x: ["color: white" if x.name == "colTOTAL" 
+            else "" for i in x]
+            , axis=1) \
+        .applymap(lambda x: "color: red" if isinstance(x, float) and x < 1 else "") \
+        .applymap(lambda x: "color: red" if isinstance(x, float) and x < 1 else "")
+
+    return resultado
+
+'''
+def _estiladorVtaTitulo(df, list_Col_Num, list_Col_Perc, titulo):
+    """
 This function will return a styled dataframe that must be assign to a variable.
 ARGS:
     df: Dataframe that will be styled.
@@ -161,6 +211,7 @@ ARGS:
     
     return resultado
 
+'''
 
 ########################################
 # PRINTING dataframe as an image

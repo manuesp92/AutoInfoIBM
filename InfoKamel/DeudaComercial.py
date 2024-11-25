@@ -1,4 +1,4 @@
-###################################
+﻿###################################
 #
 #     INFORME DEUDA COMERCIAL (DEUDORES MOROSOS)
 #               22/12/21
@@ -89,7 +89,7 @@ def _get_df(conexMSSQL):
             where FRD.NROCLIENTE > '100000'
                 AND (Cli.SALDOPREPAGO - Cli.SALDOREMIPENDFACTU) < -1000
                 and Cli.ListaSaldoCC = 1
-                and FECHASQL >= '20210101' and FECHASQL <= CAST(GETDATE() as date)
+                and FECHASQL >= '20180101' and FECHASQL <= CAST(GETDATE() as date)
 
             group by FRD.NROCLIENTE, Cli.NOMBRE, Vend.NOMBREVEND
             order by MIN(Cli.SALDOPREPAGO - Cli.SALDOREMIPENDFACTU)

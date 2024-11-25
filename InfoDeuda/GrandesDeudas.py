@@ -1,4 +1,4 @@
-###################################
+﻿###################################
 #
 #     INFORME DEUDAS > $400.000,00
 #
@@ -200,9 +200,9 @@ def df_to_image(df, ubicacion, nombre):
     """
     if os.path.exists(ubicacion+nombre):
         os.remove(ubicacion+nombre)
-        dfi.export(df, ubicacion+nombre)
+        dfi.export(df, ubicacion+nombre,max_rows=-1)
     else:
-        dfi.export(df, ubicacion+nombre)
+        dfi.export(df, ubicacion+nombre,max_rows=-1)
 
 
 df_to_image(df_facCliDet_Estilo, ubicacion, nombreFacCliDet)

@@ -1,4 +1,4 @@
-###################################
+﻿###################################
 #
 #     INFORME Penetración RedMás AYER
 #             
@@ -8,6 +8,8 @@
 import os
 import sys
 import pathlib
+
+import datetime
 
 # Allow imports from the top folder
 sys.path.insert(0,str(pathlib.Path(__file__).parent.parent))
@@ -75,7 +77,7 @@ def penetracion_liq(conexMSSQL):
         pivot_desp_totales_x_turno_liq.assign(TOTAL= lambda row: row.sum(1))
     # Create a row with the values of "Despachos RedMas" divided by "Despachos"
     pivot_desp_totales_x_turno_liq = \
-        pivot_desp_totales_x_turno_liq.append(
+        pivot_desp_totales_x_turno_liq._append(
             pivot_desp_totales_x_turno_liq.loc["Despachos RedMas"] /
             pivot_desp_totales_x_turno_liq.loc["Despachos"]
             , ignore_index=True
@@ -136,6 +138,39 @@ def penetracion_liq(conexMSSQL):
     # print("REDMAS PENETRACION LIQ")
     # print(df_penetRM_liq_x_turno)
 
+    if df_penetRM_liq_x_turno.columns[1] == '1':
+        x=1
+    elif df_penetRM_liq_x_turno.columns[1] != '1':
+        df_penetRM_liq_x_turno['1'] = 0
+    
+    df_presupuesto_liquidos =calcularPresupuestoLiquidos()
+
+    #total=df_presupuesto_liquidos['CANT OP RM'].sum()/df_presupuesto_liquidos['Presupuesto Mensual REDMAS'].sum() 
+    #df_presupuesto_liquidos['Objetivo']=df_presupuesto_liquidos['CANT OP RM']/df_presupuesto_liquidos['Presupuesto Mensual REDMAS']
+    
+    total=df_presupuesto_liquidos['CANT OP RM'].sum()/df_presupuesto_liquidos['Presupuesto Mensual REDMAS'].sum()
+
+    df_presupuesto_liquidos=df_presupuesto_liquidos.drop(columns=['Presupuesto Mensual REDMAS','CANT OP RM'])
+    df_presupuesto_liquidos=df_presupuesto_liquidos.reset_index()
+
+    df_penetRM_liq_x_turno = df_penetRM_liq_x_turno.reindex(columns=['UEN','1','2','3','TOTAL'])
+    df_penetRM_liq_x_turno=  df_penetRM_liq_x_turno.merge(df_presupuesto_liquidos,on="UEN",how="outer" )
+    df_penetRM_liq_x_turno=df_penetRM_liq_x_turno.fillna(0)
+
+    # Mover las filas con "TOTAL" al final
+    df_penetRM_liq_x_turno = df_penetRM_liq_x_turno.sort_values(by='UEN')
+    df_penetRM_liq_x_turno = pd.concat([df_penetRM_liq_x_turno[df_penetRM_liq_x_turno['UEN'] != 'TOTAL'], df_penetRM_liq_x_turno[df_penetRM_liq_x_turno['UEN'] == 'TOTAL']])
+
+
+    df_penetRM_liq_x_turno= df_penetRM_liq_x_turno.rename(index={df_penetRM_liq_x_turno.index[-1]:'colTOTAL'})
+    
+    df_penetRM_liq_x_turno.loc['colTOTAL', 'Objetivo']=0.25 
+
+    print(pivot_desp_liq_total)
+
+    #df_desvio=df_penetRM_liq_x_turno['TOTAL']-D
+    df_penetRM_liq_x_turno['Desvio']=(df_penetRM_liq_x_turno['TOTAL']/df_penetRM_liq_x_turno['Objetivo'])-1
+
     return df_penetRM_liq_x_turno
 
 
@@ -185,7 +220,7 @@ def penetracion_GNC(conexMSSQL):
         pivot_desp_totales_x_turno_GNC.assign(TOTAL= lambda row: row.sum(1))
     # Create a row with the values of "Despachos RedMas" divided by "Despachos"
     pivot_desp_totales_x_turno_GNC = \
-        pivot_desp_totales_x_turno_GNC.append(
+        pivot_desp_totales_x_turno_GNC._append(
             pivot_desp_totales_x_turno_GNC.loc["Despachos RedMas"] /
             pivot_desp_totales_x_turno_GNC.loc["Despachos"]
             , ignore_index=True
@@ -245,6 +280,34 @@ def penetracion_GNC(conexMSSQL):
 
     # print("\nREDMAS PENETRACION GNC")
     # print(df_penetRM_GNC_x_turno)
+    if df_penetRM_GNC_x_turno.columns[1] == '1':
+        x=1
+    elif df_penetRM_GNC_x_turno.columns[1] != '1':
+        df_penetRM_GNC_x_turno['1'] = 0
+    
+    #Columna objetivo
+    df_presupuesto_gnc=calcularPresupuestoGNC()
+    total=df_presupuesto_gnc['CANT OP RM'].sum()/df_presupuesto_gnc['Presupuesto Mensual REDMAS'].sum() 
+    df_presupuesto_gnc['Objetivo']= 0.65  # df_presupuesto_gnc['CANT OP RM']/df_presupuesto_gnc['Presupuesto Mensual REDMAS']
+    df_presupuesto_gnc=df_presupuesto_gnc.drop(columns=['Presupuesto Mensual REDMAS','CANT OP RM'])
+    
+
+    df_penetRM_GNC_x_turno = df_penetRM_GNC_x_turno.reindex(columns=['UEN','1','2','3','TOTAL'])
+    df_penetRM_GNC_x_turno=  df_penetRM_GNC_x_turno.merge(df_presupuesto_gnc,on="UEN",how="outer" )
+    df_penetRM_GNC_x_turno=df_penetRM_GNC_x_turno.fillna(0)
+    
+    # Mover las filas con "TOTAL" al final
+    df_penetRM_GNC_x_turno = df_penetRM_GNC_x_turno.sort_values(by='UEN')
+    df_penetRM_GNC_x_turno = pd.concat([df_penetRM_GNC_x_turno[df_penetRM_GNC_x_turno['UEN'] != 'TOTAL'], df_penetRM_GNC_x_turno[df_penetRM_GNC_x_turno['UEN'] == 'TOTAL']])
+
+
+    df_penetRM_GNC_x_turno= df_penetRM_GNC_x_turno.rename(index={df_penetRM_GNC_x_turno.index[-1]:'colTOTAL'})
+
+    df_penetRM_GNC_x_turno.loc['colTOTAL', 'Objetivo']=0.65
+    #df_penetRM_GNC_x_turno.loc[df_penetRM_GNC_x_turno['objetivo'].isna(),'objetivo']=total
+
+    df_penetRM_GNC_x_turno['Desvio']=(df_penetRM_GNC_x_turno['TOTAL']/df_penetRM_GNC_x_turno['Objetivo'])-1
+
 
     return df_penetRM_GNC_x_turno
 
@@ -262,9 +325,10 @@ ARGS:
     as percentage.
     titulo: String for the table caption.
     """
+
     resultado = df.style \
         .format("{:,.2%}", subset=listaColNumericas) \
-        .hide_index() \
+        .hide(axis=0) \
         .set_caption(titulo
             +"\n"
             +((pd.to_datetime("today")-pd.to_timedelta(1,"days"))
@@ -288,6 +352,7 @@ ARGS:
                 ]
             }
         ]) \
+        .applymap(table_color,subset='Desvio')\
         .apply(lambda x: ["background: black" if x.name == "colTOTAL" 
             else "" for i in x]
             , axis=1) \
@@ -303,8 +368,16 @@ ARGS:
         ,vmax=1
         ,subset=pd.IndexSlice[evitarTotales[:-1],"TOTAL"]
     )
+    
     return resultado
 
+def table_color(val):
+    """
+    Takes a scalar and returns a string with
+    the css property `'color: red'` for less than 60 marks, green otherwise.
+    """
+    color = 'green' if val > 0 else 'red'
+    return 'color: % s' % color
 
 ##############
 # PRINTING dataframe as an image
@@ -385,8 +458,51 @@ def _append_images(listOfImages, direction='horizontal',
 
     return new_im
 
+def calcularPresupuestoGNC():
+    fecha_actual = datetime.date.today()
+    fecha_actual= fecha_actual - datetime.timedelta(days=1)
+    fecha_actual=fecha_actual.replace(day=1).strftime("%Y/%m/%d")
 
+    ruta_presupuestos='C:/Informes/Presupuestos/PPTO KPI.xlsx'
+    df_presupuesto= pd.read_excel(ruta_presupuestos, sheet_name='red mas')
+        #df_presupuesto[['despacho'],['despacho red mas']]        
+    df_presupuesto= df_presupuesto.convert_dtypes().fillna(0)
 
+    df_presupuesto['UEN']=df_presupuesto['UEN'].str.strip()
+        
+    df_presupuesto=df_presupuesto.loc[df_presupuesto["fecha"]==fecha_actual]
+    df_presupuesto_gnc=df_presupuesto.loc[df_presupuesto['COMBUSTIBLE']=='GNC']
+    df_presupuesto_gnc=df_presupuesto_gnc.reindex(columns=['UEN', 'Presupuesto Mensual REDMAS', 'CANT OP RM'])
+
+    #df_presupuesto_gnc=pd.concat([df_presupuesto_gnc, pd.DataFrame(total).transpose()],ignore_index=True)
+    return df_presupuesto_gnc    
+
+def calcularPresupuestoLiquidos():
+    fecha_actual = datetime.date.today()
+    fecha_actual= fecha_actual - datetime.timedelta(days=1)
+    fecha_actual=fecha_actual.replace(day=1).strftime("%Y/%m/%d")
+
+    ruta_presupuestos='C:/Informes/Presupuestos/PPTO KPI.xlsx'
+    df_presupuesto= pd.read_excel(ruta_presupuestos, sheet_name='red mas')
+        #df_presupuesto[['despacho'],['despacho red mas']]
+    df_presupuesto['UEN']=df_presupuesto['UEN'].str.strip()
+
+    df_presupuesto= df_presupuesto.convert_dtypes().fillna(0)
+
+    df_presupuesto=df_presupuesto.loc[df_presupuesto["fecha"]==fecha_actual]
+
+    df_presupuesto_liquidos=df_presupuesto.loc[df_presupuesto['COMBUSTIBLE']!='GNC']
+
+    df_presupuesto_liquidos=df_presupuesto_liquidos.reindex(columns=['UEN', 'Presupuesto Mensual REDMAS', 'CANT OP RM'])
+
+    df_presupuesto_liquidos_sumados = df_presupuesto_liquidos.groupby('UEN').sum()
+    
+    #df_presupuesto_liquidos_sumados['Objetivo']=(df_presupuesto_liquidos_sumados['CANT OP RM']/df_presupuesto_liquidos_sumados['Presupuesto Mensual REDMAS'])
+    
+    df_presupuesto_liquidos_sumados['Objetivo']= 0.25
+    
+
+    return df_presupuesto_liquidos_sumados
 
 ##############
 # FUNCTION TO RUN MODULE
@@ -405,15 +521,18 @@ def penetracionRedMas():
 
     df_penetRM_liq_x_turno_Estilo = _estiladorVtaTitulo(
         penetracion_liq(conexMSSQL)
-        , ["1","2","3","TOTAL"]
+        , ["1","2","3","TOTAL",'Objetivo','Desvio']
         , "Penetración RedMas: Líquidos"
     )
     
+
     df_penetRM_GNC_x_turno_Estilo = _estiladorVtaTitulo(
         penetracion_GNC(conexMSSQL)
-        , ["1","2","3","TOTAL"]
+        , ["1","2","3","TOTAL",'Objetivo','Desvio']
         , "Penetración RedMas: GNC"
     )
+
+    
 
     ubicacion = str(pathlib.Path(__file__).parent)+"\\"
     nombreIMG_liq = "penetracionRedMas_liq.png"

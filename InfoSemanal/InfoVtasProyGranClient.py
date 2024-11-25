@@ -1,4 +1,4 @@
-###################################
+﻿###################################
 #
 #     INFORME Ventas Proyectadas Grandes Clientes
 #             (Solo Consumos en Baja)
@@ -60,17 +60,44 @@ def pre_VtaProyGranClient(conexMSSQL):
 
     df_vta_ctas_m_ant = pd.read_sql(
         """
-        DECLARE @inicioMesActual DATETIME
-        SET @inicioMesActual = DATEADD(month, DATEDIFF(month, 0, CURRENT_TIMESTAMP), 0)
+	DECLARE @inicioMesActual DATETIME
 
-        DECLARE @inicioMesAnterior DATETIME
-        SET @inicioMesAnterior = DATEADD(M,-1,@inicioMesActual)
+	SET @inicioMesActual = DATEADD(month, DATEDIFF(month, 0, CURRENT_TIMESTAMP), 0)
 
-        --Divide por la cant de días del mes anterior y multiplica por la cant de días del
-        --mes actual
-        DECLARE @pondMesAnt FLOAT
-        SET @pondMesAnt = CAST(DAY(EOMONTH(CURRENT_TIMESTAMP)) AS float) /
-            CAST(DAY(EOMONTH(@inicioMesAnterior)) AS float)
+
+	DECLARE @inicioMesAnterior DATETIME
+
+	SET @inicioMesAnterior = DATEADD(M,-1,@inicioMesActual)
+
+	--Divide por la cantidad de días del mes anterior y multiplica por la cantidad de días del mes actual
+
+	DECLARE @diasMesActual INT
+
+	SET @diasMesActual = DAY(EOMONTH(CURRENT_TIMESTAMP))
+
+
+	DECLARE @diasMesAnterior INT
+
+	SET @diasMesAnterior = DAY(EOMONTH(@inicioMesAnterior))
+
+
+	DECLARE @pondMesAnt FLOAT
+
+	IF @diasMesAnterior > 0
+
+	BEGIN
+
+		SET @pondMesAnt = CAST(@diasMesActual AS float) / CAST(@diasMesAnterior AS float)
+
+	END
+
+	ELSE
+
+	BEGIN
+
+		SET @pondMesAnt = 1 -- O alguna otra lógica según tu necesidad
+
+	END
 
         SELECT 
             RTRIM(FRD.[CODPRODUCTO]) AS 'CODPRODUCTO'
@@ -110,17 +137,29 @@ def pre_VtaProyGranClient(conexMSSQL):
 
     df_vta_ctas_m_act = pd.read_sql(
         """
-        DECLARE @inicioMesActual DATETIME
-        SET @inicioMesActual = DATEADD(month, DATEDIFF(month, 0, CURRENT_TIMESTAMP), 0)
+         DECLARE @ayer DATETIME
+	SET @ayer = DATEADD(day, -1, CAST(GETDATE() AS date))
+	DECLARE @inicioMesActual DATETIME
+	SET @inicioMesActual = DATEADD(month, DATEDIFF(month, 0, @ayer), 0)
 
-        DECLARE @hoy DATETIME
-        SET @hoy = DATEADD(DAY, DATEDIFF(DAY, 0, CURRENT_TIMESTAMP), 0)
+	DECLARE @inicioMesAnterior DATETIME
+	SET @inicioMesAnterior = DATEADD(M,-1,@inicioMesActual)
 
-        --Divide por la cantidad de días cursados del mes actual y multiplica por la cant
-        --de días del mes actual
-        DECLARE @pondMesAct FLOAT
-        SET @pondMesAct = CAST(DAY(EOMONTH(CURRENT_TIMESTAMP)) AS float) /
-            (CAST(DAY(CURRENT_TIMESTAMP) AS float)-1)
+	--Divide por la cant de días del mes anterior y multiplica por la cant de días del
+	--mes actual
+	
+	DECLARE @hoy DATETIME
+	SET @hoy = DATEADD(DAY, DATEDIFF(DAY, 0, CURRENT_TIMESTAMP), 0)
+
+    DECLARE @CantidadDiasMesAnterior INT = DAY(DATEADD(DAY, -1,DATEADD(DAY, 1 - DAY(getdate()), getdate())))
+    Declare @pondMesAnt Float
+    SET @pondMesAnt =  CAST(DAY(EOMONTH(getdate()-1)) AS float) /@CantidadDiasMesAnterior
+
+    --Divide por la cantidad de días cursados del mes actual y multiplica por la cant
+    --de días del mes actual
+     Declare @pondMesAct Float
+    SET @pondMesAct = CAST(DAY(EOMONTH(getdate()-1)) AS float) /
+    (CAST(DAY(getdate()-1) AS float))
 
         SELECT 
             RTRIM(FRD.[CODPRODUCTO]) AS 'CODPRODUCTO'

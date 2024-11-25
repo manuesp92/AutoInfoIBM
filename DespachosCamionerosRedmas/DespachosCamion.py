@@ -1,4 +1,4 @@
-###################################
+﻿###################################
 #
 #     INFORME Primer Despacho por Activación
 #             (CAMIONEROS)
@@ -9,7 +9,11 @@ import mysql.connector
 from mysql.connector import Error
 import pyodbc
 from DatosLogin import login, loginMySQL
-
+import pathlib
+import sys
+from datetime import datetime
+from datetime import timedelta
+sys.path.insert(0,str(pathlib.Path(__file__).parent.parent))
 import pandas as pd
 
 import os
@@ -24,34 +28,6 @@ logger = logging.getLogger(__name__)
 
 
 tiempoInicio = pd.to_datetime("today")
-
-
-def conectorMySQL(datos):
-    """
-    This function will create a connection to a MySQL Server, should be 
-    provided with a list with the following strings in this exact order:
-        datos=["host","port","database","user","password"]
-    """
-    try:
-        conexMySQL = mysql.connector.connect(
-            host=datos[0]
-            ,port=datos[1]
-            ,database=datos[2]
-            ,user=datos[3]
-            ,password=datos[4]
-        )
-        if conexMySQL.is_connected():
-            db_Info = conexMySQL.get_server_info()
-            logger.info("\nConnected to MySQL Server version " + db_Info)
-            cursor = conexMySQL.cursor()
-            cursor.execute("select database();")
-            record = cursor.fetchone()
-            logger.info("You're connected to database: " + record[0])
-            cursor.close()
-            return conexMySQL
-            
-    except Error as e:
-        logger.error("\nError while connecting to MySQL\n" + e, exc_info=1)
 
 
 def conectorMSSQL(datos):
@@ -85,13 +61,13 @@ def conectorMSSQL(datos):
         
 
 # Create database connections
-conexMySQL = conectorMySQL(loginMySQL)
+
 conexMSSQL = conectorMSSQL(login)
 
 
 # Extracting all the cards numbers that had been activated in the last 92 days 
 # and belong to truckers
-df_tarj_camion = pd.read_sql("""
+'''df_tarj_camion = pd.read_sql("""
     SELECT 
         users.tarjeta as 'TARJETA'      
     FROM red_mas_prod.users
@@ -99,9 +75,9 @@ df_tarj_camion = pd.read_sql("""
         #and users.category = '17'
         and register_app_at >= cast(date_add(now(), INTERVAL -92 DAY) as date)
 """, conexMySQL)
-
-df_tarj_camion = df_tarj_camion.convert_dtypes()
-df_tarj_camion["TARJETA"] = df_tarj_camion["TARJETA"].str.strip()
+'''
+#df_tarj_camion = df_tarj_camion.convert_dtypes()
+#df_tarj_camion["TARJETA"] = df_tarj_camion["TARJETA"].str.strip()
 
 
 # Extracting all the cards numbers that had been used for the first time 
@@ -117,7 +93,6 @@ df_1era_carga = pd.read_sql("""
         and D.UEN IN (
             'MERC GUAYMALLEN'
             ,'MERCADO 2'
-            ,'MITRE'
             ,'PERDRIEL'
             ,'PERDRIEL2'
             ,'PUENTE OLIVE'
@@ -135,11 +110,7 @@ df_1era_carga["TARJETA"] = df_1era_carga["TARJETA"].str.strip()
 
 # Inner merge of "df_1era_carga" and "df_tarj_camion" to get the truckers cards 
 # activated in the last 92 days and used for the first time yesterday
-df_1era_carga_camion = pd.merge(
-    df_1era_carga,
-    df_tarj_camion,
-    on="TARJETA"
-)
+df_1era_carga_camion = df_1era_carga
 
 # Using a pivot table to count TARJETA per UEN
 pivot_1era_carga_camion = pd.pivot_table(df_1era_carga_camion
@@ -154,28 +125,58 @@ pivot_1era_carga_camion = pivot_1era_carga_camion.convert_dtypes()
 
 # Counting all the truckers purchases, of yesterday, that dont have an account
 df_despachos = pd.read_sql("""
-    SELECT    
-        D.UEN
-        ,COUNT(Distinct D.ID) as 'DESPACHOS'
-    FROM [Rumaos].[dbo].[VIEW_DESPAPRO_FILTRADA] as D
-        join Rumaos.dbo.Fac001 as F on 
-            D.TIPOCOMP = F.TIPOCOMP
-            and D.LETRACOMP = F.LETRACOMP
-            and D.PTOVTA = F.PTOVTA
-            and D.NROCOMP = F.NROCOMP
+    SELECT
+    a.UEN, count(distinct a.DESPACHOS) AS 'DESPACHOS'
+    FROM
+    (SELECT
+    D.UEN, D.ID AS 'DESPACHOS'
+    FROM
+    [Rumaos].[dbo].[VIEW_DESPAPRO_FILTRADA] AS D
+    INNER JOIN
+    Rumaos.dbo.Fac001 AS F
+    ON
+    D.TIPOCOMP = F.TIPOCOMP
+    AND D.LETRACOMP = F.LETRACOMP
+    AND D.PTOVTA = F.PTOVTA
+    AND D.NROCOMP = F.NROCOMP
     WHERE 
-        D.UEN IN (
-            'MERC GUAYMALLEN'
-            ,'MERCADO 2'
-            ,'MITRE'
-            ,'PERDRIEL'
-            ,'PERDRIEL2'
-            ,'PUENTE OLIVE'
-        )
-        and D.VOLUMEN >= '99'
-        and D.FECHASQL = DATEADD(day, -1, CAST(GETDATE() AS date))
-        and F.NROCLIPRO <= '99999' 
-    GROUP BY D.UEN
+    D.CODPRODUCTO NOT LIKE 'GNC'
+    AND D.UEN IN ('MERC GUAYMALLEN', 'MERCADO 2', 'PUENTE OLIVE')
+    AND D.VOLUMEN >= '80'
+    AND D.FECHASQL = DATEADD(day, -1, CAST(GETDATE() AS date))
+    
+	UNION
+ 
+	SELECT
+    D.UEN, D.ID AS 'DESPACHOS'
+    FROM
+    [Rumaos].[dbo].[VIEW_DESPAPRO_FILTRADA] AS D
+    INNER JOIN
+    Rumaos.dbo.FacRemDet AS F
+    ON 
+    D.PTOVTA = F.PTOVTA
+    AND D.NROCOMP = F.NROREMITO
+    WHERE 
+	D.CODPRODUCTO NOT LIKE 'GNC'
+    AND D.UEN IN ('MERC GUAYMALLEN', 'MERCADO 2', 'PUENTE OLIVE')
+    AND D.VOLUMEN >= '80'
+    AND D.FECHASQL = DATEADD(day, -1, CAST(GETDATE() AS date))) AS a
+	GROUP BY
+    a.UEN
+
+	UNION ALL
+
+    SELECT
+    d.UEN, COUNT(DISTINCT d.ID) AS 'DESPACHOS'
+    FROM Despapro AS d
+    WHERE
+    d.UEN IN ('PERDRIEL', 'PERDRIEL2')
+    AND d.CODPRODUCTO IN ('go', 'eu')
+    AND d.aforador NOT LIKE '%[a-zA-Z]%'
+    AND D.FECHASQL = DATEADD(day, -1, CAST(GETDATE() AS date))   
+    GROUP BY
+    d.UEN
+  
 """, conexMSSQL)
 
 df_despachos["UEN"] = df_despachos["UEN"].str.strip()
@@ -185,27 +186,59 @@ df_despachos["UEN"] = df_despachos["UEN"].str.strip()
 # but use "RedMas" Card
 df_despachosRedmas = pd.read_sql("""
     SELECT
-        D.UEN
-        ,COUNT(Distinct D.ID) as 'DESPACHOS RED MAS'
-    FROM [Rumaos].[dbo].[VIEW_DESPAPRO_FILTRADA] as D
-        LEFT OUTER join Rumaos.dbo.Fac001 as F on 
-            D.TIPOCOMP = F.TIPOCOMP
-            and D.LETRACOMP = F.LETRACOMP
-            and D.PTOVTA = F.PTOVTA
-            and D.NROCOMP = F.NROCOMP
-    where D.TARJETA like 'i%'
-        and D.UEN IN (
-            'MERC GUAYMALLEN'
-            ,'MERCADO 2'
-            ,'MITRE'
-            ,'PERDRIEL'
-            ,'PERDRIEL2'
-            ,'PUENTE OLIVE'
-        )
-        and D.VOLUMEN >= '99'
-        and D.FECHASQL = DATEADD(day, -1, CAST(GETDATE() AS date))
-        and F.NROCLIPRO <= '99999'
-    GROUP BY D.UEN
+    a.UEN, COUNT(distinct a.DESPACHOS) AS 'DESPACHOS RED MAS'
+    FROM (
+	SELECT 
+	D.UEN, D.ID AS 'DESPACHOS'
+    FROM
+    [Rumaos].[dbo].[VIEW_DESPAPRO_FILTRADA] AS D
+    INNER JOIN
+    Rumaos.dbo.Fac001 AS F
+    ON
+    D.TIPOCOMP = F.TIPOCOMP
+    AND D.LETRACOMP = F.LETRACOMP
+    AND D.PTOVTA = F.PTOVTA
+    AND D.NROCOMP = F.NROCOMP
+    WHERE 
+	D.TARJETA LIKE 'i%' 
+	AND D.CODPRODUCTO NOT LIKE 'GNC'
+    AND D.UEN IN ('MERC GUAYMALLEN', 'MERCADO 2', 'PUENTE OLIVE')
+    AND D.VOLUMEN >= '80'
+    AND D.FECHASQL = DATEADD(day, -1, CAST(GETDATE() AS date))
+    
+	UNION
+ 
+	SELECT    
+	D.UEN, D.ID AS 'DESPACHOS'
+    FROM
+    [Rumaos].[dbo].[VIEW_DESPAPRO_FILTRADA] AS D
+    INNER JOIN
+    Rumaos.dbo.FacRemDet AS F
+    ON 
+    D.PTOVTA = F.PTOVTA
+    AND D.NROCOMP = F.NROREMITO
+    WHERE 
+	D.TARJETA LIKE 'i%' 
+	AND D.CODPRODUCTO NOT LIKE 'GNC'
+    AND D.UEN IN ('MERC GUAYMALLEN', 'MERCADO 2', 'PUENTE OLIVE')
+    AND D.VOLUMEN >= '80'
+    AND D.FECHASQL = DATEADD(day, -1, CAST(GETDATE() AS date)) ) AS a
+	GROUP BY
+    a.UEN
+
+    UNION ALL
+
+    SELECT
+    d.UEN, COUNT(DISTINCT d.ID) AS 'DESPACHOS RED MAS'
+    FROM Despapro AS d
+    WHERE
+    D.TARJETA LIKE 'i%'
+    AND d.UEN IN ('PERDRIEL', 'PERDRIEL2')
+    AND d.CODPRODUCTO IN ('go', 'eu')
+    AND d.aforador NOT LIKE '%[a-zA-Z]%'
+    AND d.FECHASQL = DATEADD(day, -1, CAST(GETDATE() AS date))   
+    GROUP BY
+    d.UEN
 """, conexMSSQL)
 
 df_despachosRedmas["UEN"] = df_despachosRedmas["UEN"].str.strip()
@@ -265,13 +298,13 @@ df_despachos_Y_Activ.fillna({"PENETRACIÓN RED MÁS":tasa}, inplace=True)
 if "ACTIVACIONES" not in df_despachos_Y_Activ:
     df_despachos_Y_Activ["ACTIVACIONES"] = 0
 
-
+df_despachos_Y_Activ = df_despachos_Y_Activ.reindex(columns=['UEN','PENETRACIÓN RED MÁS','DESPACHOS RED MAS','DESPACHOS'])
 
 ##########################################
 # STYLING of the dataframe
 ##########################################
 
-def estiladorVtaTitulo(df,listaColNumericas,titulo):
+def estiladorVtaTitulo(df,listaColPorc,listaColNumericas,titulo):
     """
 This function will return a styled dataframe that must be assign to a variable.
 ARGS:
@@ -282,7 +315,8 @@ ARGS:
     """
     resultado = df.style \
         .format("{0:,.0f}", subset=listaColNumericas) \
-        .hide_index() \
+        .format("{0:,.2%}", subset=listaColPorc) \
+        .hide(axis=0) \
         .set_caption(titulo
             +"\n"
             +((tiempoInicio-pd.to_timedelta(1,"days")).strftime("%d/%m/%y"))
@@ -305,6 +339,7 @@ ARGS:
                 ]
             }
         ]) \
+        .applymap(lambda x: 'color: blue' if x >= 0.75 else 'color: #FF0000', subset=pd.IndexSlice[:, ['PENETRACIÓN RED MÁS']]) \
         .apply(lambda x: ["background: black" if x.name == "colTOTAL" 
             else "" for i in x]
             , axis=1) \
@@ -315,22 +350,9 @@ ARGS:
 
 df_despachos_Y_Activ_Estilo = estiladorVtaTitulo(
     df_despachos_Y_Activ
-    ,["DESPACHOS", "DESPACHOS RED MAS", "ACTIVACIONES"]
-    , "Despachos a Camioneros: Efectividad Red Más"
-)
-
-# Apply percentage format and center text to "PENETRACIÓN RED MÁS"
-df_despachos_Y_Activ_Estilo.format("{:,.2%}", subset="PENETRACIÓN RED MÁS")
-df_despachos_Y_Activ_Estilo.set_properties(subset="PENETRACIÓN RED MÁS"
-    , **{"text-align": "center", "width": "100px"})
-
-#Gradient color for "PENETRACIÓN RED MÁS" without affecting TOTAL Row
-evitarTotales = df_despachos_Y_Activ.index.get_level_values(0)
-df_despachos_Y_Activ_Estilo.background_gradient(
-    cmap="summer_r"
-    ,vmin=0
-    ,vmax=1
-    ,subset=pd.IndexSlice[evitarTotales[:-1],"PENETRACIÓN RED MÁS"]
+    ,"PENETRACIÓN RED MÁS"
+    ,["DESPACHOS", "DESPACHOS RED MAS"]
+    , "RedMas Camiones: Efectividad Red Más"
 )
 
 try:
@@ -346,7 +368,7 @@ except:
 # This will print the df with a unique name and will erase the old image 
 # everytime the script is run
 
-ubicacion = "C:\Informes\DespachosCamionerosRedmas\\"
+ubicacion = str(pathlib.Path(__file__).parent)+"\\"
 nombreDespachos = "Info_Despachos_Camioneros.png"
 
 def df_to_image(df, ubicacion, nombre):

@@ -1,4 +1,4 @@
-###################################
+﻿###################################
 #
 #     INFORME ActivosCorrientes
 #               04/02/22
@@ -34,24 +34,30 @@ logger = logging.getLogger(__name__)
 def _get_df_pesos(conexSGFin):
     df_pesos = pd.read_sql(
         """
-        --------------------------
-        DECLARE @FECHA as date
-        SET @FECHA = GETDATE();
-        --------------------------
+ select t.[ACTIVOS CORRIENTES],sum(t.[Saldo Final]) 'Saldo Final' from(SELECT  'STOCK EFECTIVO UENS PESOS' as 'ACTIVOS CORRIENTES'
+                ,ISNULL(ROUND(SUM([FondoReal]),0),0) as 'Saldo Final'
+    FROM (
+    SELECT 
+    a.FondoReal ,b.Nombre,
+        ROW_NUMBER() OVER (PARTITION BY b.Nombre ORDER BY a.Fecha DESC) AS rn
+    from SGFIN_Arqueo as a left join SGFIN_Box as b 
+    on a.IdBox=b.Id
+    ) ranked
 
+    WHERE rn = 2 and Nombre <> 'RENDICIONES' group by Nombre
 
-        -- Saldo Final TOTAL de los arqueos de la fecha
-        SELECT
-            'STOCK EFECTIVO UENS PESOS' as 'ACTIVOS CORRIENTES'
-            ,ISNULL(ROUND(SUM(arq.[FondoReal]),0),0) as 'Saldo Final'
-        FROM [Sgfin].[dbo].[SGFIN_Arqueo] as arq
+	union all 
 
-        LEFT OUTER JOIN dbo.[SGFIN_Box] as box
-            ON arq.IdBox = box.Id
+	select 'STOCK EFECTIVO UENS PESOS' as 'ACTIVOS CORRIENTES',sum(-d.cantidadbilletes) as 'Saldo Final' from SGFIN_Arqueo as A left join [Sgfin].[dbo].[SGFIN_DetalleArqueo] as D
+	on A.Id= D.idArqueo
+	left join SGFIN_Box as b 
+	on a.IdBox=b.Id
+	left join SGFIN_Billete as l
+	on d.idbillete=l.id
 
-        where box.UEN not IN ('RENDICIONES')
-            AND cast(arq.Fecha as date) = @FECHA
-        group by cast(arq.[Fecha] as date)
+	where l.Descripcion like 'dolar pesifi%'
+	AND d.cantidadbilletes > 0
+	and CAST(a.Fecha AS DATE) = CAST(GETDATE() -0 AS DATE) ) as t group by t.[ACTIVOS CORRIENTES]
         """
         , conexSGFin
     )
@@ -743,17 +749,12 @@ def _get_df_cards(spreadsheetID, range):
 
 
 
-
+tiempoInicio = pd.to_datetime("today")
 ##########################################
 # STYLING of the dataframe
 ##########################################
 
-def _estiladorVtaTitulo(
-    df:pd.DataFrame
-    , list_Col_Num=[]
-    , list_Col_Perc=[]
-    , titulo=""
-):
+def _estiladorVtaTitulo(df, list_Col_Num, titulo):
     """
 This function will return a styled dataframe that must be assign to a variable.
 ARGS:
@@ -765,19 +766,15 @@ ARGS:
     titulo: String for the table caption.
     """
     resultado = df.style \
-        .format("$ {0:,.0f}", subset=list_Col_Num) \
-        .format("{:,.2%}", subset=list_Col_Perc) \
-        .hide_index() \
+        .format("{0:,.2f}", subset=list_Col_Num) \
+        .hide(axis=0) \
         .set_caption(
             titulo
-            + " "
-            + (pd.to_datetime("today")
-            .strftime("%d/%m/%y"))
-        ) \
-        .set_properties(subset=list_Col_Num
-            , **{"text-align": "right", "width": "100px"}) \
-        .set_properties(subset=list_Col_Perc
-            , **{"text-align": "center", "width": "90px"}) \
+            + "<br>"
+            + ((tiempoInicio).strftime("%d/%m/%y"))
+            + "<br>") \
+        .set_properties(subset= list_Col_Num
+            , **{"text-align": "center", "width": "100px"}) \
         .set_properties(border= "2px solid black") \
         .set_table_styles([
             {"selector": "caption", 
@@ -791,21 +788,21 @@ ARGS:
                     ("text-align", "center")
                     ,("background-color","black")
                     ,("color","white")
-                    ,("font-size", "14px")
                 ]
             }
         ]) \
-        .apply(lambda x: ["background-color: black" if x.name == df.index[-1] 
+        .apply(lambda x: ["background: black" if x.name == "colTOTAL" 
             else "" for i in x]
             , axis=1) \
-        .apply(lambda x: ["color: white" if x.name == df.index[-1]
-            else "" for i in x]
-            , axis=1) \
-        .apply(lambda x: ["font-size: 15px" if x.name == df.index[-1]
+        .apply(lambda x: ["color: white" if x.name == "colTOTAL" 
             else "" for i in x]
             , axis=1)
-
     return resultado
+
+#### Defino columnas para cada Dataframe (Numericas)
+numCols = ["Saldo Final"
+         ]
+### COLUMNAS PARA INFORME PENETRACION
 
 
 
@@ -856,7 +853,7 @@ def activosCorrientes():
 
     # Get DFs
     df_pesos = _get_df_pesos(conexSGFin)
-    df_dolar, v_resta = _get_df_dolar(googleSheet_InfoKamel, "Dólar!A:E")
+    #df_dolar, v_resta = _get_df_dolar(googleSheet_InfoKamel, "Dólar!A:E")
     df_bancos = _get_df_bank(conexSGFin)
     df_cards = _get_df_cards(googleSheet_InfoKamel,"Tarjetas!A:C")
     df_debt = _get_df_debt(conexCentral)
@@ -865,13 +862,13 @@ def activosCorrientes():
     
     # Remove dolars from df_pesos
     df_pesos = df_pesos.set_index("ACTIVOS CORRIENTES")
-    df_pesos = df_pesos - v_resta
+    #df_pesos = df_pesos - v_resta
     df_pesos = df_pesos.reset_index()
     
     # Concatenate the DFs
     df_union = pd.concat([
         df_pesos
-        , df_dolar
+        #, df_dolar
         , df_bancos
         , df_cards
         , df_debt
@@ -894,8 +891,8 @@ def activosCorrientes():
     # Styling dataframe
     df_union_Estilo = _estiladorVtaTitulo(
         df_union
-        , list_Col_Num=["Saldo Final"]
-        , titulo= "ACTIVOS CORRIENTES"
+        , numCols
+        ,"ACTIVOS CORRIENTES"
     )
 
     # Files location
